@@ -35,7 +35,7 @@ test:backend:
     policy: pull-push
   before_script:
     - cd ${BACKEND_DIR}
-    - npm ci --prefer-offline --no-audit
+    - npm install --prefer-offline --no-audit
   script:
     - echo "🔍 TypeScript check (backend)..."
     - npx tsc --noEmit
@@ -54,7 +54,7 @@ test:frontend:
     policy: pull-push
   before_script:
     - cd ${FRONTEND_DIR}
-    - npm ci --prefer-offline --no-audit
+    - npm install --prefer-offline --no-audit
   script:
     - echo "🔍 TypeScript check (frontend)..."
     - npx tsc --noEmit
@@ -76,7 +76,7 @@ build:backend:
     policy: pull-push
   before_script:
     - cd ${BACKEND_DIR}
-    - npm ci --prefer-offline --no-audit
+    - npm install --prefer-offline --no-audit
   script:
     - echo "🔨 Compilando backend..."
     - npx tsc
@@ -99,7 +99,7 @@ build:frontend:
     policy: pull-push
   before_script:
     - cd ${FRONTEND_DIR}
-    - npm ci --prefer-offline --no-audit
+    - npm install --prefer-offline --no-audit
   script:
     - echo "🔨 Compilando frontend..."
     - npm run build
