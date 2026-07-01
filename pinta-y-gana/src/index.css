@@ -1,0 +1,427 @@
+@import "tailwindcss";
+
+/* ================================================================
+   DOMINÓCITO — Pinta y Gana
+   Paleta y tokens extraídos del moodboard del diseñador
+   ================================================================ */
+
+:root {
+  /* --- Brand / CTAs --- */
+  --coral: #FF6B4A;
+  --coral-hover: #FF8466;
+  --coral-glow: rgba(255, 107, 74, 0.4);
+  --coral-shadow: rgba(255, 107, 74, 0.35);
+
+  /* --- Mesa / Wood --- */
+  --chocolate-dark: #3D1F0F;     /* fondo hero principal */
+  --wood-medium:    #5C2E1A;     /* madera mesa medio */
+  --wood-light:     #8B5A2B;     /* madera miel, highlights */
+  --walnut:         #3A2418;     /* decoraciones marrón oscuro */
+  --walnut-light:   #5A3825;
+  --leather:        #7A3E1F;     /* marco caja */
+
+  /* --- Tipografía / fondos oscuros --- */
+  --cream:          #F5E6D3;     /* tipografía cálida */
+  --cream-soft:     #FFE9D6;     /* cream display hero */
+  --cream-deep:     #F4E6C8;     /* crema logo wordmark */
+  --white:          #FFFFFF;
+  --black:          #1A1A1A;     /* negro carbón logo */
+  --nav-bg:         rgba(26, 26, 26, 0.75);  /* navbar píldora */
+
+  /* --- Dorado (monedas, brillos) --- */
+  --gold:           #D4A24A;
+  --gold-bright:    #F4C76B;
+  --gold-deep:      #B8762A;
+  --gold-shadow:    #7A4A18;
+
+  /* --- Tipografías --- */
+  --font-display:   'Bungee Shade', 'Alfa Slab One', system-ui, sans-serif;
+  --font-logo:      'Rye', 'Smokum', serif;
+  --font-body:      'Inter', system-ui, sans-serif;
+
+  /* --- Effects --- */
+  --shadow-hard:    6px 6px 0 var(--black);
+  --shadow-glow:    0 4px 24px var(--coral-glow);
+  --shadow-elevated: 0 8px 32px rgba(0, 0, 0, 0.3);
+  --blur-glass:     blur(20px);
+
+  /* --- Layout --- */
+  --radius-pill:    999px;
+  --nav-height:     70px;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  padding: 0;
+  background: var(--chocolate-dark);
+  color: var(--cream);
+  font-family: var(--font-body);
+  min-height: 100vh;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+#root {
+  min-height: 100vh;
+}
+
+/* ================================================================
+   SCROLLBAR
+   ================================================================ */
+::-webkit-scrollbar { width: 6px; }
+::-webkit-scrollbar-track { background: var(--chocolate-dark); }
+::-webkit-scrollbar-thumb {
+  background: var(--walnut);
+  border-radius: 3px;
+}
+::-webkit-scrollbar-thumb:hover { background: var(--walnut-light); }
+
+/* ================================================================
+   KEYFRAMES
+   ================================================================ */
+@keyframes glow-pulse {
+  0%, 100% { box-shadow: 0 0 12px 2px var(--coral-glow); }
+  50%      { box-shadow: 0 0 28px 6px var(--coral-glow); }
+}
+
+@keyframes gold-pulse {
+  0%, 100% { box-shadow: 0 0 14px 2px rgba(212, 162, 74, 0.4); }
+  50%      { box-shadow: 0 0 28px 6px rgba(212, 162, 74, 0.5); }
+}
+
+@keyframes fire-flicker {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  25%      { opacity: 0.85; transform: scale(1.03); }
+  75%      { opacity: 0.9;  transform: scale(0.97); }
+}
+
+@keyframes win-burst {
+  0%   { transform: scale(0.5); opacity: 0; }
+  60%  { transform: scale(1.15); opacity: 1; }
+  100% { transform: scale(1); opacity: 1; }
+}
+
+@keyframes float-in {
+  0%   { transform: translateY(20px); opacity: 0; }
+  100% { transform: translateY(0); opacity: 1; }
+}
+
+@keyframes countdown-urgent {
+  0%, 100% { color: #ef4444; }
+  50%      { color: #fca5a5; }
+}
+
+@keyframes shine {
+  0%   { background-position: -200% center; }
+  100% { background-position: 200% center; }
+}
+
+@keyframes domino-select {
+  0%   { transform: scale(1); }
+  50%  { transform: scale(1.12); }
+  100% { transform: scale(1.08); }
+}
+
+@keyframes celebrate {
+  0%   { transform: scale(1)    rotate(0deg); }
+  25%  { transform: scale(1.05) rotate(-1deg); }
+  50%  { transform: scale(1.08) rotate(1deg); }
+  75%  { transform: scale(1.05) rotate(-0.5deg); }
+  100% { transform: scale(1)    rotate(0deg); }
+}
+
+@keyframes slideDown {
+  from { transform: translateY(-10px); opacity: 0; }
+  to   { transform: translateY(0); opacity: 1; }
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+@keyframes particle-float {
+  0%   { transform: translateY(0) rotate(0deg); opacity: 1; }
+  100% { transform: translateY(-80px) rotate(360deg); opacity: 0; }
+}
+
+@keyframes sparkle {
+  0%, 100% { opacity: 0.3; transform: scale(0.8); }
+  50%      { opacity: 1;   transform: scale(1.1); }
+}
+
+@keyframes aura-pulse {
+  0%, 100% { opacity: 0.55; transform: scale(1); }
+  50%      { opacity: 0.75; transform: scale(1.06); }
+}
+
+.animate-glow-pulse       { animation: glow-pulse 2s ease-in-out infinite; }
+.animate-gold-pulse       { animation: gold-pulse 1.5s ease-in-out infinite; }
+.animate-fire             { animation: fire-flicker 0.8s ease-in-out infinite; }
+.animate-win-burst        { animation: win-burst 0.5s cubic-bezier(0.34, 1.56, 0.64, 1) forwards; }
+.animate-float-in         { animation: float-in 0.4s ease-out forwards; }
+.animate-countdown-urgent { animation: countdown-urgent 0.8s ease-in-out infinite; }
+.animate-celebrate        { animation: celebrate 0.6s ease-in-out; }
+.animate-slide-down       { animation: slideDown 0.3s ease-out; }
+.animate-fade-in          { animation: fadeIn 0.4s ease-out; }
+.animate-sparkle          { animation: sparkle 2.4s ease-in-out infinite; }
+.animate-aura             { animation: aura-pulse 3.5s ease-in-out infinite; }
+
+/* ================================================================
+   GLOWS & GRADIENTES
+   ================================================================ */
+.glow-coral  { box-shadow: 0 0 24px var(--coral-glow); }
+.glow-gold   { box-shadow: 0 0 20px rgba(212, 162, 74, 0.4); }
+.glow-emerald{ box-shadow: 0 0 20px rgba(16, 185, 129, 0.3); }
+
+.text-glow-coral {
+  text-shadow: 0 0 18px var(--coral-glow);
+}
+.text-glow-gold {
+  text-shadow: 0 0 16px rgba(212, 162, 74, 0.5);
+}
+
+.gradient-coral {
+  background: linear-gradient(135deg, var(--coral) 0%, var(--coral-hover) 100%);
+}
+
+.gradient-gold {
+  background: linear-gradient(135deg, #f59e0b 0%, #fbbf24 50%, #d97706 100%);
+}
+
+.gradient-fire {
+  background: linear-gradient(135deg, #ef4444, #f97316, #fbbf24);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.gradient-emerald {
+  background: linear-gradient(135deg, #10b981, #34d399);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+/* ================================================================
+   COMPONENTES BASE
+   ================================================================ */
+.card {
+  background: rgba(28, 18, 10, 0.6);
+  backdrop-filter: blur(12px);
+  border: 1px solid rgba(255, 233, 214, 0.08);
+  border-radius: 20px;
+}
+
+.card-elevated {
+  background: rgba(58, 36, 24, 0.55);
+  backdrop-filter: blur(14px);
+  border: 1px solid rgba(255, 233, 214, 0.12);
+  border-radius: 20px;
+}
+
+/* CTA primario coral */
+.btn-coral {
+  background: var(--coral);
+  color: var(--white);
+  font-family: var(--font-body);
+  font-weight: 600;
+  font-size: 14px;
+  letter-spacing: 0.01em;
+  padding: 12px 28px;
+  border-radius: var(--radius-pill);
+  border: none;
+  cursor: pointer;
+  box-shadow: 0 4px 16px var(--coral-shadow);
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.btn-coral:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 28px var(--coral-glow);
+}
+
+.btn-coral:active {
+  transform: translateY(0);
+}
+
+/* CTA hero (más grande) */
+.btn-coral-hero {
+  background: var(--coral);
+  color: var(--white);
+  font-family: var(--font-body);
+  font-weight: 700;
+  font-size: 18px;
+  padding: 16px 36px;
+  border-radius: var(--radius-pill);
+  border: none;
+  cursor: pointer;
+  box-shadow: 0 6px 28px var(--coral-glow);
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.btn-coral-hero:hover {
+  transform: translateY(-2px) scale(1.02);
+  box-shadow: 0 12px 40px var(--coral-glow);
+}
+
+/* CTA dorado para Premios/Resultados */
+.btn-gold {
+  background: linear-gradient(135deg, #f59e0b, #d97706);
+  color: #111;
+  font-weight: 800;
+  padding: 12px 28px;
+  border-radius: var(--radius-pill);
+  border: none;
+  cursor: pointer;
+  transition: transform 0.2s ease;
+}
+
+.btn-gold:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 8px 24px rgba(212, 162, 74, 0.5);
+}
+
+/* ================================================================
+   PÍLDORA FLOTANTE (NAVBAR)
+   ================================================================ */
+.nav-pill {
+  background: var(--nav-bg);
+  backdrop-filter: var(--blur-glass);
+  -webkit-backdrop-filter: var(--blur-glass);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: var(--radius-pill);
+  box-shadow: var(--shadow-elevated);
+}
+
+/* ================================================================
+   HERO TYPOGRAPHY
+   ================================================================ */
+.display-hero {
+  font-family: var(--font-display);
+  font-weight: 900;
+  font-size: clamp(80px, 13vw, 180px);
+  color: var(--cream-soft);
+  letter-spacing: -0.02em;
+  line-height: 0.9;
+  text-shadow:
+    6px 6px 0 var(--black),
+    -2px -2px 0 var(--black),
+    8px 8px 24px rgba(0, 0, 0, 0.6);
+  transform: rotate(-3deg);
+  display: inline-block;
+}
+
+.logo-mark {
+  font-family: var(--font-logo);
+  color: var(--cream-deep);
+  letter-spacing: 0.04em;
+}
+
+/* ================================================================
+   INPUTS
+   ================================================================ */
+input[type='text'],
+input[type='email'],
+input[type='password'] {
+  background: rgba(28, 18, 10, 0.5);
+  border: 1px solid rgba(255, 233, 214, 0.12);
+  color: var(--cream);
+  font-family: var(--font-body);
+}
+
+input:focus {
+  outline: none;
+  border-color: var(--coral);
+  box-shadow: 0 0 0 3px rgba(255, 107, 74, 0.18);
+}
+
+/* Range slider */
+input[type='range'] {
+  -webkit-appearance: none;
+  width: 100%;
+  height: 6px;
+  background: rgba(58, 36, 24, 0.8);
+  border-radius: 3px;
+  outline: none;
+}
+
+input[type='range']::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 22px;
+  height: 22px;
+  background: var(--coral);
+  border-radius: 50%;
+  cursor: pointer;
+  box-shadow: 0 0 10px var(--coral-glow);
+  transition: box-shadow 0.2s;
+}
+
+input[type='range']::-webkit-slider-thumb:hover {
+  box-shadow: 0 0 18px var(--coral-glow);
+}
+
+/* ================================================================
+   NOISE TEXTURE OVERLAY
+   ================================================================ */
+.noise-bg {
+  position: relative;
+}
+
+.noise-bg::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.04'/%3E%3C/svg%3E");
+  pointer-events: none;
+  border-radius: inherit;
+}
+
+/* ================================================================
+   PARTICLES (win burst)
+   ================================================================ */
+.particles {
+  position: fixed;
+  pointer-events: none;
+  z-index: 9999;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+}
+
+.particle {
+  position: absolute;
+  animation: particle-float 1.5s ease-out forwards;
+  font-size: 22px;
+}
+
+/* ================================================================
+   SPARKLES DECORATIVOS (hero)
+   ================================================================ */
+.sparkle {
+  position: absolute;
+  width: 14px;
+  height: 14px;
+  color: var(--gold-bright);
+  filter: drop-shadow(0 0 6px rgba(244, 199, 107, 0.7));
+  pointer-events: none;
+}
+
+/* ================================================================
+   AURA CORAL DETRÁS DEL TÍTULO HERO
+   ================================================================ */
+.aura-coral {
+  position: absolute;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(255, 107, 74, 0.55) 0%, rgba(255, 107, 74, 0) 65%);
+  filter: blur(8px);
+  pointer-events: none;
+  z-index: 0;
+}

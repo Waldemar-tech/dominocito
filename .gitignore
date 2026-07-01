@@ -1,0 +1,51 @@
+# Dominócito — .gitignore
+
+# ─── Dependencies ────────────────────────────────────────
+node_modules/
+.pnp
+.pnp.js
+
+# ─── Build outputs ───────────────────────────────────────
+dist/
+build/
+*.tgz
+
+# ─── Deploy package (se regenera con el build) ──────────
+deploy-package/backend-dist/
+deploy-package/frontend-dist/
+deploy-package/production/.env.production
+deploy-package/production/SECRETS_BACKUP.txt
+deploy-package/*.tar.gz
+
+# ─── Logs ────────────────────────────────────────────────
+*.log
+backend.log
+frontend.log
+postgres_local.log
+watch.log
+
+# ─── Environment files (NUNCA COMMITEAR SECRETS) ────────
+.env
+.env.local
+.env.*.local
+.env.remote_backup
+.env.production
+
+# ─── Backups / temp ──────────────────────────────────────
+*.backup
+*.local_backup
+*.pid
+*.sock
+*.seed
+
+# ─── IDE ─────────────────────────────────────────────────
+.vscode/
+.idea/
+.DS_Store
+
+# ─── Misc ────────────────────────────────────────────────
+.cache/
+coverage/
+
+# ─── ECDSA private keys (regenerar con scripts/generate-keys.ts) ─
+backend/keys/ec-private.pem

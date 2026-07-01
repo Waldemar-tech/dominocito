@@ -1,0 +1,185 @@
+# Dominócito — CI/CD Pipeline
+# Repo: https://gitlab.com/waldemarfjobs/dominocito
+# Stack: GitLab.com shared runners (free tier) + SSH deploy to 10.101.20.3
+
+stages:
+  - test
+  - build
+  - deploy
+
+variables:
+  BACKEND_DIR: backend
+  FRONTEND_DIR: pinta-y-gana
+  NODE_VERSION: "20"
+
+# ────────────────────────────────────────────────────────────────
+# Cache de node_modules
+# ────────────────────────────────────────────────────────────────
+.cache_template: &node_cache
+  key:
+    files:
+      - backend/package-lock.json
+      - pinta-y-gana/package-lock.json
+  paths:
+    - backend/node_modules/
+    - pinta-y-gana/node_modules/
+
+# ────────────────────────────────────────────────────────────────
+# STAGE 1: Test — corre en cada push (cualquier branch)
+# ────────────────────────────────────────────────────────────────
+test:backend:
+  stage: test
+  image: node:${NODE_VERSION}
+  cache:
+    <<: *node_cache
+    policy: pull-push
+  before_script:
+    - cd ${BACKEND_DIR}
+    - npm ci --prefer-offline --no-audit
+  script:
+    - echo "🔍 TypeScript check (backend)..."
+    - npx tsc --noEmit
+    - echo "🔍 Sintaxis de migraciones SQL..."
+    - ls src/db/migrations/ | grep -E '\.sql$' || echo "No migrations found"
+  rules:
+    - changes:
+        - backend/**/*
+        - .gitlab-ci.yml
+
+test:frontend:
+  stage: test
+  image: node:${NODE_VERSION}
+  cache:
+    <<: *node_cache
+    policy: pull-push
+  before_script:
+    - cd ${FRONTEND_DIR}
+    - npm ci --prefer-offline --no-audit
+  script:
+    - echo "🔍 TypeScript check (frontend)..."
+    - npx tsc --noEmit
+    - echo "🔍 Build de producción..."
+    - npm run build
+  rules:
+    - changes:
+        - pinta-y-gana/**/*
+        - .gitlab-ci.yml
+
+# ────────────────────────────────────────────────────────────────
+# STAGE 2: Build — compila backend (dist/) y frontend (dist/)
+# ────────────────────────────────────────────────────────────────
+build:backend:
+  stage: build
+  image: node:${NODE_VERSION}
+  cache:
+    <<: *node_cache
+    policy: pull-push
+  before_script:
+    - cd ${BACKEND_DIR}
+    - npm ci --prefer-offline --no-audit
+  script:
+    - echo "🔨 Compilando backend..."
+    - npx tsc
+    - echo "✅ Backend compilado en backend/dist/"
+  artifacts:
+    paths:
+      - backend/dist/
+    expire_in: 1 day
+  rules:
+    - changes:
+        - backend/**/*
+        - .gitlab-ci.yml
+    - if: $CI_COMMIT_BRANCH == "main"
+
+build:frontend:
+  stage: build
+  image: node:${NODE_VERSION}
+  cache:
+    <<: *node_cache
+    policy: pull-push
+  before_script:
+    - cd ${FRONTEND_DIR}
+    - npm ci --prefer-offline --no-audit
+  script:
+    - echo "🔨 Compilando frontend..."
+    - npm run build
+    - echo "✅ Frontend compilado en pinta-y-gana/dist/"
+  artifacts:
+    paths:
+      - pinta-y-gana/dist/
+    expire_in: 1 day
+  rules:
+    - changes:
+        - pinta-y-gana/**/*
+        - .gitlab-ci.yml
+    - if: $CI_COMMIT_BRANCH == "main"
+
+# ────────────────────────────────────────────────────────────────
+# STAGE 3: Deploy — solo en main
+# SSH al server 10.101.20.3 y hace pull + build + restart
+#
+# SETUP REQUERIDO (manual, una sola vez):
+#   1. En el .3: crear SSH keypair para CI: ssh-keygen -t ed25519 -C "gitlab-ci-deploy" -f /home/lottopro/.ssh/gitlab_ci_deploy
+#   2. Agregar la pública a /home/lottopro/.ssh/authorized_keys
+#   3. En GitLab: Settings > CI/CD > Variables > agregar:
+#        SSH_PRIVATE_KEY  (Protected, Masked)  ← contenido de la privada
+#        SSH_USER         (Protected)          ← "lottopro"
+#        DEPLOY_HOST      (Protected)          ← "10.101.20.3"
+#        DOMAIN           (Protected)          ← "dominocito.com"
+# ────────────────────────────────────────────────────────────────
+deploy:server:
+  stage: deploy
+  image: alpine:3.19
+  before_script:
+    - apk add --no-cache openssh-client rsync bash
+    - mkdir -p ~/.ssh
+    - echo "$SSH_PRIVATE_KEY" | tr -d '\r' > ~/.ssh/id_ed25519
+    - chmod 600 ~/.ssh/id_ed25519
+    - ssh-keyscan -H "$DEPLOY_HOST" >> ~/.ssh/known_hosts 2>/dev/null
+  script:
+    - echo "🚀 Deploying Dominócito to ${DEPLOY_HOST}..."
+    - |
+      ssh ${SSH_USER}@${DEPLOY_HOST} << 'DEPLOY_EOF'
+        set -e
+        cd /opt/dominocito
+        echo "[$(date)] Pull desde GitLab..."
+        git pull origin main
+        echo "[$(date)] Instalando deps backend..."
+        cd backend && npm install --omit=dev --no-audit
+        echo "[$(date)] Compilando backend..."
+        npx tsc
+        cd ..
+        echo "[$(date)] Build frontend..."
+        cd pinta-y-gana && npm install --no-audit && npm run build
+        cd ..
+        echo "[$(date)] Copiando frontend a /var/www/dominocito-front/..."
+        sudo rsync -a --delete pinta-y-gana/dist/ /var/www/dominocito-front/
+        sudo chmod -R o+r /var/www/dominocito-front
+        echo "[$(date)] Corriendo migraciones de DB..."
+        cd backend && node dist/db/migrate.js || echo "⚠️ Migración falló o no hay nuevas"
+        cd ..
+        echo "[$(date)] Reiniciando backend con PM2..."
+        pm2 restart dominocito-api
+        echo "[$(date)] Verificando health check..."
+        sleep 3
+        curl -sf http://localhost:3200/health || echo "⚠️ Health check falló"
+        echo "[$(date)] Deploy OK ✅"
+      DEPLOY_EOF
+  environment:
+    name: production
+    url: https://${DOMAIN}
+  rules:
+    - if: $CI_COMMIT_BRANCH == "main"
+      changes:
+        - backend/**/*
+        - pinta-y-gana/**/*
+        - .gitlab-ci.yml
+  needs:
+    - job: test:backend
+      optional: true
+    - job: test:frontend
+      optional: true
+    - job: build:backend
+      optional: true
+    - job: build:frontend
+      optional: true

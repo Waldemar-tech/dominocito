@@ -1,0 +1,866 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>🎲 DOMINÓCITO — Pipeline Técnico v1.0</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    background: #080c14;
+    color: #e2e8f0;
+    font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+    min-height: 100vh;
+    padding: 32px 24px;
+  }
+
+  /* ── Header ── */
+  .header {
+    text-align: center;
+    margin-bottom: 48px;
+  }
+  .header h1 {
+    font-size: 2.2rem;
+    font-weight: 800;
+    letter-spacing: -0.5px;
+    background: linear-gradient(135deg, #10b981, #3b82f6, #f59e0b);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    margin-bottom: 8px;
+  }
+  .header p {
+    color: #64748b;
+    font-size: 0.95rem;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+  }
+
+  /* ── Legend ── */
+  .legend {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 14px;
+    justify-content: center;
+    margin-bottom: 48px;
+    background: #0f1623;
+    border: 1px solid #1e293b;
+    border-radius: 12px;
+    padding: 16px 24px;
+    max-width: 860px;
+    margin-left: auto;
+    margin-right: auto;
+  }
+  .legend-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 0.82rem;
+    color: #94a3b8;
+  }
+  .legend-dot {
+    width: 12px; height: 12px;
+    border-radius: 3px;
+    flex-shrink: 0;
+  }
+
+  /* ── Grid layout ── */
+  .pipeline-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 28px;
+    max-width: 1320px;
+    margin: 0 auto 40px;
+  }
+  @media (max-width: 1100px) {
+    .pipeline-grid { grid-template-columns: repeat(2, 1fr); }
+  }
+  @media (max-width: 680px) {
+    .pipeline-grid { grid-template-columns: 1fr; }
+  }
+
+  /* ── Section card ── */
+  .section {
+    background: #0f1623;
+    border: 1px solid #1e2d45;
+    border-radius: 16px;
+    overflow: hidden;
+  }
+  .section-header {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 14px 20px;
+    font-weight: 700;
+    font-size: 0.95rem;
+    letter-spacing: 0.4px;
+    text-transform: uppercase;
+  }
+  .section-icon { font-size: 1.3rem; }
+  .section-body { padding: 18px 20px 20px; }
+
+  /* ── Steps ── */
+  .step {
+    display: flex;
+    gap: 12px;
+    align-items: flex-start;
+    margin-bottom: 6px;
+    position: relative;
+  }
+  .step:not(:last-child)::after {
+    content: '';
+    position: absolute;
+    left: 15px;
+    top: 32px;
+    width: 2px;
+    height: calc(100% - 8px);
+    background: #1e293b;
+  }
+  .step-num {
+    flex-shrink: 0;
+    width: 30px; height: 30px;
+    border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 0.75rem;
+    font-weight: 700;
+    z-index: 1;
+  }
+  .step-content {
+    flex: 1;
+    padding-top: 5px;
+    padding-bottom: 10px;
+  }
+  .step-label {
+    font-size: 0.83rem;
+    line-height: 1.45;
+    color: #cbd5e1;
+  }
+  .step-sub {
+    font-size: 0.73rem;
+    color: #64748b;
+    margin-top: 3px;
+    line-height: 1.4;
+    font-family: 'Courier New', monospace;
+  }
+
+  /* ── Arrow connector ── */
+  .arrow {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 4px 0 8px;
+    color: #334155;
+    font-size: 1.3rem;
+  }
+
+  /* ── Tag chips ── */
+  .tag {
+    display: inline-block;
+    font-size: 0.65rem;
+    padding: 2px 7px;
+    border-radius: 20px;
+    font-weight: 600;
+    margin-left: 6px;
+    vertical-align: middle;
+    text-transform: uppercase;
+    letter-spacing: 0.4px;
+  }
+
+  /* ── Color themes ── */
+  /* Frontend / Flow = green */
+  .theme-green .section-header { background: rgba(16,185,129,0.12); color: #10b981; border-bottom: 1px solid rgba(16,185,129,0.25); }
+  .theme-green .step-num { background: rgba(16,185,129,0.18); color: #10b981; border: 1px solid rgba(16,185,129,0.4); }
+
+  /* Backend = blue */
+  .theme-blue .section-header { background: rgba(59,130,246,0.12); color: #60a5fa; border-bottom: 1px solid rgba(59,130,246,0.25); }
+  .theme-blue .step-num { background: rgba(59,130,246,0.18); color: #60a5fa; border: 1px solid rgba(59,130,246,0.4); }
+
+  /* Database = yellow */
+  .theme-yellow .section-header { background: rgba(245,158,11,0.12); color: #f59e0b; border-bottom: 1px solid rgba(245,158,11,0.25); }
+  .theme-yellow .step-num { background: rgba(245,158,11,0.18); color: #f59e0b; border: 1px solid rgba(245,158,11,0.4); }
+
+  /* Security = red */
+  .theme-red .section-header { background: rgba(239,68,68,0.12); color: #f87171; border-bottom: 1px solid rgba(239,68,68,0.25); }
+  .theme-red .step-num { background: rgba(239,68,68,0.18); color: #f87171; border: 1px solid rgba(239,68,68,0.4); }
+
+  /* Sorteo = purple */
+  .theme-purple .section-header { background: rgba(139,92,246,0.12); color: #a78bfa; border-bottom: 1px solid rgba(139,92,246,0.25); }
+  .theme-purple .step-num { background: rgba(139,92,246,0.18); color: #a78bfa; border: 1px solid rgba(139,92,246,0.4); }
+
+  /* Tag colors */
+  .tag-backend { background: rgba(59,130,246,0.2); color: #60a5fa; }
+  .tag-db      { background: rgba(245,158,11,0.2); color: #f59e0b; }
+  .tag-sec     { background: rgba(239,68,68,0.2);  color: #f87171; }
+  .tag-front   { background: rgba(16,185,129,0.2); color: #10b981; }
+  .tag-atomic  { background: rgba(168,85,247,0.2); color: #c084fc; }
+
+  /* ── DB Section — full width ── */
+  .section-full {
+    grid-column: 1 / -1;
+  }
+
+  /* ── DB Flow Chain ── */
+  .db-chain {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 6px;
+    padding: 8px 0;
+  }
+  .db-node {
+    background: rgba(245,158,11,0.1);
+    border: 1px solid rgba(245,158,11,0.35);
+    border-radius: 10px;
+    padding: 10px 16px;
+    font-size: 0.8rem;
+    font-weight: 600;
+    color: #f59e0b;
+    font-family: 'Courier New', monospace;
+    white-space: nowrap;
+  }
+  .db-desc {
+    font-size: 0.68rem;
+    color: #64748b;
+    font-weight: 400;
+    font-family: 'Segoe UI', sans-serif;
+    display: block;
+    margin-top: 2px;
+    text-transform: none;
+    letter-spacing: 0;
+  }
+  .db-arrow {
+    color: #334155;
+    font-size: 1.2rem;
+    flex-shrink: 0;
+  }
+
+  /* ── Security grid ── */
+  .sec-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 12px;
+    padding: 4px 0;
+  }
+  .sec-card {
+    background: rgba(239,68,68,0.07);
+    border: 1px solid rgba(239,68,68,0.2);
+    border-radius: 10px;
+    padding: 12px 14px;
+  }
+  .sec-title {
+    font-size: 0.78rem;
+    font-weight: 700;
+    color: #f87171;
+    margin-bottom: 6px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .sec-list {
+    list-style: none;
+    font-size: 0.72rem;
+    color: #94a3b8;
+    line-height: 1.7;
+  }
+  .sec-list li::before {
+    content: '→ ';
+    color: #f87171;
+    font-weight: 600;
+  }
+
+  /* ── Footer ── */
+  .footer {
+    text-align: center;
+    color: #334155;
+    font-size: 0.75rem;
+    margin-top: 24px;
+    padding-top: 24px;
+    border-top: 1px solid #1e293b;
+    max-width: 1320px;
+    margin-left: auto;
+    margin-right: auto;
+  }
+
+  /* ── Sorteo special: seed display ── */
+  .seed-box {
+    background: rgba(139,92,246,0.08);
+    border: 1px solid rgba(139,92,246,0.25);
+    border-radius: 10px;
+    padding: 10px 14px;
+    margin-bottom: 10px;
+    font-family: 'Courier New', monospace;
+    font-size: 0.75rem;
+    color: #c084fc;
+    line-height: 1.8;
+  }
+  .seed-box strong {
+    color: #a78bfa;
+    display: block;
+    margin-bottom: 4px;
+    font-size: 0.7rem;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    font-family: 'Segoe UI', sans-serif;
+  }
+
+  /* ── Multiplier badges ── */
+  .mult-row {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+    margin-top: 4px;
+  }
+  .mult-badge {
+    padding: 3px 10px;
+    border-radius: 20px;
+    font-size: 0.72rem;
+    font-weight: 700;
+    letter-spacing: 0.3px;
+  }
+  .mult-x18  { background: rgba(16,185,129,0.2); color: #10b981; border: 1px solid rgba(16,185,129,0.3); }
+  .mult-x50  { background: rgba(59,130,246,0.2); color: #60a5fa; border: 1px solid rgba(59,130,246,0.3); }
+  .mult-x100 { background: rgba(245,158,11,0.2); color: #f59e0b; border: 1px solid rgba(245,158,11,0.3); }
+
+  /* ── Print ── */
+  @media print {
+    body { background: #fff; color: #000; padding: 12px; }
+    .section { border: 1px solid #ccc; break-inside: avoid; }
+    .section-header { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  }
+</style>
+</head>
+<body>
+
+<!-- ══════════════════════════════════════ HEADER ══════════════════════════════════════ -->
+<div class="header">
+  <h1>🎲 DOMINÓCITO — Pipeline Técnico v1.0</h1>
+  <p>Pinta y Gana · Arquitectura Completa · Registro → Login → Wallet → Apuesta → Sorteo</p>
+</div>
+
+<!-- ══════════════════════════════════════ LEGEND ══════════════════════════════════════ -->
+<div class="legend" style="margin-bottom: 40px;">
+  <div class="legend-item">
+    <div class="legend-dot" style="background:#10b981;"></div>
+    <span>Frontend / Flujo normal</span>
+  </div>
+  <div class="legend-item">
+    <div class="legend-dot" style="background:#3b82f6;"></div>
+    <span>Backend / API</span>
+  </div>
+  <div class="legend-item">
+    <div class="legend-dot" style="background:#f59e0b;"></div>
+    <span>Base de Datos</span>
+  </div>
+  <div class="legend-item">
+    <div class="legend-dot" style="background:#ef4444;"></div>
+    <span>Seguridad</span>
+  </div>
+  <div class="legend-item">
+    <div class="legend-dot" style="background:#8b5cf6;"></div>
+    <span>Sorteo / Lógica especial</span>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════ PIPELINE GRID ══════════════════════════════════════ -->
+<div class="pipeline-grid">
+
+  <!-- ── 1. REGISTRO ── -->
+  <div class="section theme-green">
+    <div class="section-header">
+      <span class="section-icon">📝</span>
+      <span>1 · Registro de Usuario</span>
+    </div>
+    <div class="section-body">
+
+      <div class="step">
+        <div class="step-num">1</div>
+        <div class="step-content">
+          <div class="step-label">Usuario llena formulario</div>
+          <div class="step-sub">username · email · password</div>
+        </div>
+      </div>
+
+      <div class="step">
+        <div class="step-num">2</div>
+        <div class="step-content">
+          <div class="step-label">Validación local <span class="tag tag-front">Frontend</span></div>
+          <div class="step-sub">Campos requeridos · formato email · pw mínimo</div>
+        </div>
+      </div>
+
+      <div class="step">
+        <div class="step-num">3</div>
+        <div class="step-content">
+          <div class="step-label"><code>POST /auth/register</code> <span class="tag tag-backend">API</span></div>
+          <div class="step-sub">Rate limit: 3 req/min/IP</div>
+        </div>
+      </div>
+
+      <div class="step">
+        <div class="step-num">4</div>
+        <div class="step-content">
+          <div class="step-label">Backend procesa <span class="tag tag-backend">Backend</span></div>
+          <div class="step-sub">
+            → Valida inputs (sanitize)<br>
+            → bcrypt hash password<br>
+            → INSERT dc_users<br>
+            → INSERT dc_wallets (€0.00)<br>
+            → Genera JWT
+          </div>
+        </div>
+      </div>
+
+      <div class="step">
+        <div class="step-num">5</div>
+        <div class="step-content">
+          <div class="step-label">Frontend guarda JWT <span class="tag tag-front">Frontend</span></div>
+          <div class="step-sub">localStorage · redirect al juego</div>
+        </div>
+      </div>
+
+      <div class="step">
+        <div class="step-num">6</div>
+        <div class="step-content">
+          <div class="step-label">✅ Usuario entra al juego</div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- ── 2. LOGIN ── -->
+  <div class="section theme-green">
+    <div class="section-header">
+      <span class="section-icon">🔑</span>
+      <span>2 · Login</span>
+    </div>
+    <div class="section-body">
+
+      <div class="step">
+        <div class="step-num">1</div>
+        <div class="step-content">
+          <div class="step-label">Usuario ingresa credenciales</div>
+          <div class="step-sub">email + password</div>
+        </div>
+      </div>
+
+      <div class="step">
+        <div class="step-num">2</div>
+        <div class="step-content">
+          <div class="step-label"><code>POST /auth/login</code> <span class="tag tag-backend">API</span></div>
+          <div class="step-sub">Rate limit: 5 req/min/IP</div>
+        </div>
+      </div>
+
+      <div class="step">
+        <div class="step-num">3</div>
+        <div class="step-content">
+          <div class="step-label">Backend valida <span class="tag tag-backend">Backend</span></div>
+          <div class="step-sub">
+            → SELECT dc_users WHERE email<br>
+            → bcrypt.compare(pw, hash)<br>
+            → Si ok → genera JWT<br>
+            → Si falla → 401 Unauthorized
+          </div>
+        </div>
+      </div>
+
+      <div class="step">
+        <div class="step-num">4</div>
+        <div class="step-content">
+          <div class="step-label">Frontend obtiene balance <span class="tag tag-front">Frontend</span></div>
+          <div class="step-sub"><code>GET /wallet</code> → balance real en €</div>
+        </div>
+      </div>
+
+      <div class="step">
+        <div class="step-num">5</div>
+        <div class="step-content">
+          <div class="step-label">✅ Usuario entra al juego</div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- ── 3. RECARGA WALLET ── -->
+  <div class="section theme-blue">
+    <div class="section-header">
+      <span class="section-icon">💳</span>
+      <span>3 · Recarga de Wallet</span>
+    </div>
+    <div class="section-body">
+
+      <div class="step">
+        <div class="step-num">1</div>
+        <div class="step-content">
+          <div class="step-label">Usuario selecciona monto</div>
+          <div class="step-sub">€5 · €10 · €20 · €50 · personalizado</div>
+        </div>
+      </div>
+
+      <div class="step">
+        <div class="step-num">2</div>
+        <div class="step-content">
+          <div class="step-label">Pasarela de pago <span class="tag tag-front">Pendiente</span></div>
+          <div class="step-sub">Chinchín / UbiiPago<br>⚠️ Pendiente implementar</div>
+        </div>
+      </div>
+
+      <div class="step">
+        <div class="step-num">3</div>
+        <div class="step-content">
+          <div class="step-label"><code>POST /wallet/add</code> <span class="tag tag-backend">API</span></div>
+          <div class="step-sub">JWT requerido en header</div>
+        </div>
+      </div>
+
+      <div class="step">
+        <div class="step-num">4</div>
+        <div class="step-content">
+          <div class="step-label">Backend actualiza <span class="tag tag-db">DB</span></div>
+          <div class="step-sub">
+            → INSERT dc_wallet_transactions<br>
+            &nbsp;&nbsp;&nbsp;(tipo: deposito)<br>
+            → UPDATE dc_wallets SET balance_eur
+          </div>
+        </div>
+      </div>
+
+      <div class="step">
+        <div class="step-num">5</div>
+        <div class="step-content">
+          <div class="step-label">✅ Balance actualizado en UI</div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- ── 4. APUESTA ── -->
+  <div class="section theme-blue">
+    <div class="section-header">
+      <span class="section-icon">🁣</span>
+      <span>4 · Apuesta</span>
+    </div>
+    <div class="section-body">
+
+      <div class="step">
+        <div class="step-num">1</div>
+        <div class="step-content">
+          <div class="step-label">Usuario selecciona</div>
+          <div class="step-sub">Piedra (0–27) + Monto (€0.25 – €25)</div>
+        </div>
+      </div>
+
+      <div class="step">
+        <div class="step-num">2</div>
+        <div class="step-content">
+          <div class="step-label">Verificación local <span class="tag tag-front">Frontend</span></div>
+          <div class="step-sub">Sorteo open · saldo suficiente en UI</div>
+        </div>
+      </div>
+
+      <div class="step">
+        <div class="step-num">3</div>
+        <div class="step-content">
+          <div class="step-label"><code>POST /sorteos/bet</code> <span class="tag tag-backend">API</span></div>
+          <div class="step-sub">JWT · Rate limit: 10 req/min</div>
+        </div>
+      </div>
+
+      <div class="step">
+        <div class="step-num">4</div>
+        <div class="step-content">
+          <div class="step-label">Backend valida <span class="tag tag-backend">Backend</span></div>
+          <div class="step-sub">
+            → Sorteo status = 'open'<br>
+            → Usuario tiene saldo real<br>
+            → monto ≤ tope_por_piedra<br>
+            → domino_id ∈ [0..27]
+          </div>
+        </div>
+      </div>
+
+      <div class="step">
+        <div class="step-num">5</div>
+        <div class="step-content">
+          <div class="step-label">SELECT FOR UPDATE <span class="tag tag-atomic">Atómico</span></div>
+          <div class="step-sub">Lock en dc_wallets → previene race condition</div>
+        </div>
+      </div>
+
+      <div class="step">
+        <div class="step-num">6</div>
+        <div class="step-content">
+          <div class="step-label">Transacción DB <span class="tag tag-db">DB</span></div>
+          <div class="step-sub">
+            → UPDATE dc_wallets (descuenta)<br>
+            → INSERT dc_bets<br>
+            → INSERT dc_wallet_transactions<br>
+            &nbsp;&nbsp;&nbsp;(tipo: apuesta)
+          </div>
+        </div>
+      </div>
+
+      <div class="step">
+        <div class="step-num">7</div>
+        <div class="step-content">
+          <div class="step-label">✅ Balance actualizado + confirmación</div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- ── 5. SORTEO ── -->
+  <div class="section theme-purple" style="grid-column: span 2;">
+    <div class="section-header">
+      <span class="section-icon">🎲</span>
+      <span>5 · Sorteo (cada 30 minutos)</span>
+    </div>
+    <div class="section-body">
+
+      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
+
+        <!-- Left column: steps 1-4 -->
+        <div>
+          <div class="step">
+            <div class="step-num">1</div>
+            <div class="step-content">
+              <div class="step-label">Countdown llega a 0</div>
+              <div class="step-sub">Timer frontend · o admin fuerza reveal</div>
+            </div>
+          </div>
+
+          <div class="step">
+            <div class="step-num">2</div>
+            <div class="step-content">
+              <div class="step-label"><code>POST /admin/sorteos/:id/revelar</code></div>
+              <div class="step-sub">Requiere token admin</div>
+            </div>
+          </div>
+
+          <div class="step">
+            <div class="step-num">3</div>
+            <div class="step-content">
+              <div class="step-label">Backend calcula ganador <span class="tag tag-backend">Backend</span></div>
+              <div class="step-sub">Ver fórmula de seed →</div>
+            </div>
+          </div>
+
+          <div class="step">
+            <div class="step-num">4</div>
+            <div class="step-content">
+              <div class="step-label">Pago de premios <span class="tag tag-db">DB</span></div>
+              <div class="step-sub">
+                → SELECT dc_bets del sorteo<br>
+                → Para cada apuesta ganadora:<br>
+                &nbsp;&nbsp;&nbsp;UPDATE dc_wallets (acredita)<br>
+                &nbsp;&nbsp;&nbsp;INSERT dc_wallet_transactions<br>
+                &nbsp;&nbsp;&nbsp;(tipo: premio)<br>
+                → UPDATE dc_sorteos (revealed_at, winner, banca_fin)
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Right column: seed formula + next sorteo -->
+        <div>
+
+          <div class="seed-box">
+            <strong>🔢 Fórmula de Seed (Determinista)</strong>
+            winner (×18) = seed % 28<br>
+            winner (×50) = (seed × 31) % 28<br>
+            winner (×100) = (seed × 37) % 28
+          </div>
+
+          <div style="margin-bottom: 12px;">
+            <div style="font-size: 0.78rem; color: #94a3b8; margin-bottom: 6px;">Multiplicadores:</div>
+            <div class="mult-row">
+              <span class="mult-badge mult-x18">×18 — Ganador principal</span>
+              <span class="mult-badge mult-x50">×50 — Super</span>
+              <span class="mult-badge mult-x100">×100 — Jackpot</span>
+            </div>
+          </div>
+
+          <div class="step">
+            <div class="step-num">5</div>
+            <div class="step-content">
+              <div class="step-label">Cálculo banca siguiente</div>
+              <div class="step-sub">
+                banca_fin = banca_inicio + total_apostado − total_premios<br>
+                tope_nuevo = (banca_fin × 20%) ÷ 100
+              </div>
+            </div>
+          </div>
+
+          <div class="step">
+            <div class="step-num">6</div>
+            <div class="step-content">
+              <div class="step-label"><code>POST /admin/sorteos/crear</code></div>
+              <div class="step-sub">Nuevo sorteo con tope_nuevo como tope_por_piedra</div>
+            </div>
+          </div>
+
+          <div class="step">
+            <div class="step-num">7</div>
+            <div class="step-content">
+              <div class="step-label">✅ Frontend muestra resultado</div>
+              <div class="step-sub">Ganador + multiplicadores · Nuevo countdown inicia</div>
+            </div>
+          </div>
+
+        </div>
+
+      </div>
+    </div>
+  </div>
+
+  <!-- ── 6. BASE DE DATOS ── -->
+  <div class="section theme-yellow section-full">
+    <div class="section-header">
+      <span class="section-icon">🗄️</span>
+      <span>6 · Tablas de Base de Datos — Flujo Secuencial</span>
+    </div>
+    <div class="section-body">
+
+      <div class="db-chain">
+
+        <div class="db-node">
+          dc_users
+          <span class="db-desc">id · username · email<br>password_hash · created_at</span>
+        </div>
+        <div class="db-arrow">→</div>
+
+        <div class="db-node">
+          dc_wallets
+          <span class="db-desc">user_id · balance_eur<br>updated_at</span>
+        </div>
+        <div class="db-arrow">→</div>
+
+        <div class="db-node">
+          dc_wallet_transactions
+          <span class="db-desc">wallet_id · amount · tipo<br>deposito | apuesta | premio</span>
+        </div>
+        <div class="db-arrow">→</div>
+
+        <div class="db-node">
+          dc_sorteos
+          <span class="db-desc">id · status · seed · winner<br>banca_inicio · banca_fin<br>revealed_at · tope_por_piedra</span>
+        </div>
+        <div class="db-arrow">→</div>
+
+        <div class="db-node">
+          dc_bets
+          <span class="db-desc">sorteo_id · user_id<br>domino_id · amount<br>created_at</span>
+        </div>
+        <div class="db-arrow">→</div>
+
+        <div class="db-node">
+          dc_banca_log
+          <span class="db-desc">sorteo_id · banca_inicio<br>banca_fin · total_apostado<br>total_premios</span>
+        </div>
+
+      </div>
+
+      <!-- Relationships row -->
+      <div style="margin-top: 16px; display: flex; flex-wrap: wrap; gap: 12px;">
+        <div style="font-size: 0.72rem; color: #64748b; display: flex; align-items: center; gap: 6px;">
+          <span style="color: #f59e0b; font-weight: 700;">FK:</span>
+          dc_wallets.user_id → dc_users.id
+        </div>
+        <div style="font-size: 0.72rem; color: #64748b;">·</div>
+        <div style="font-size: 0.72rem; color: #64748b; display: flex; align-items: center; gap: 6px;">
+          <span style="color: #f59e0b; font-weight: 700;">FK:</span>
+          dc_wallet_transactions.wallet_id → dc_wallets.id
+        </div>
+        <div style="font-size: 0.72rem; color: #64748b;">·</div>
+        <div style="font-size: 0.72rem; color: #64748b; display: flex; align-items: center; gap: 6px;">
+          <span style="color: #f59e0b; font-weight: 700;">FK:</span>
+          dc_bets.sorteo_id → dc_sorteos.id
+        </div>
+        <div style="font-size: 0.72rem; color: #64748b;">·</div>
+        <div style="font-size: 0.72rem; color: #64748b; display: flex; align-items: center; gap: 6px;">
+          <span style="color: #f59e0b; font-weight: 700;">FK:</span>
+          dc_banca_log.sorteo_id → dc_sorteos.id
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- ── 7. SEGURIDAD ── -->
+  <div class="section theme-red section-full">
+    <div class="section-header">
+      <span class="section-icon">🔒</span>
+      <span>7 · Seguridad — Capas Activas en Cada Ruta</span>
+    </div>
+    <div class="section-body">
+
+      <div class="sec-grid">
+
+        <div class="sec-card">
+          <div class="sec-title">🚦 Rate Limiting</div>
+          <ul class="sec-list">
+            <li>Login: 5 req/min/IP</li>
+            <li>Registro: 3 req/min/IP</li>
+            <li>Apuestas: 10 req/min</li>
+            <li>429 Too Many Requests</li>
+          </ul>
+        </div>
+
+        <div class="sec-card">
+          <div class="sec-title">🪪 JWT Auth</div>
+          <ul class="sec-list">
+            <li>Todas las rutas protegidas</li>
+            <li>Header: Authorization Bearer</li>
+            <li>Payload: user_id + role</li>
+            <li>Expiry configurable</li>
+          </ul>
+        </div>
+
+        <div class="sec-card">
+          <div class="sec-title">🔐 Integridad DB</div>
+          <ul class="sec-list">
+            <li>SELECT FOR UPDATE en wallets</li>
+            <li>Anti race condition en apuestas</li>
+            <li>Transacciones atómicas</li>
+            <li>bcrypt para passwords</li>
+          </ul>
+        </div>
+
+        <div class="sec-card">
+          <div class="sec-title">🛡️ HTTP Security</div>
+          <ul class="sec-list">
+            <li>Helmet.js headers</li>
+            <li>Input sanitization</li>
+            <li>CORS configurado</li>
+            <li>XSS / injection protection</li>
+          </ul>
+        </div>
+
+        <div class="sec-card">
+          <div class="sec-title">📊 Sorteo Auditable</div>
+          <ul class="sec-list">
+            <li>Seed guardado antes del sorteo</li>
+            <li>Fórmula determinista pública</li>
+            <li>dc_banca_log para auditoría</li>
+            <li>Cada acción tiene timestamp</li>
+          </ul>
+        </div>
+
+      </div>
+    </div>
+  </div>
+
+</div><!-- /pipeline-grid -->
+
+<!-- ── Footer ── -->
+<div class="footer">
+  <p>🎲 DOMINÓCITO — Pinta y Gana &nbsp;·&nbsp; Pipeline Técnico v1.0 &nbsp;·&nbsp; Generado 2026-06-18 &nbsp;·&nbsp; Confidencial</p>
+</div>
+
+</body>
+</html>
