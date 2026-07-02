@@ -66,15 +66,19 @@ export default function DominoTile({
 
   let outerGlow: string | undefined = undefined;
   let additionalClass = '';
+  // Si la ficha es ganadora o tiene multiplicador, NO atenuar aunque esté disabled.
+  // (Cuando status === 'revealed' todas las fichas se marcan disabled para evitar re-click,
+  //  pero ganadora/×50/×100 deben verse brillantes.)
+  const keepVisible = !!isWinner || !!multiplier;
 
   if (isWinner) {
-    outerGlow = '0 0 0 2px #F4C76B, 0 0 32px 6px rgba(244, 199, 107, 0.7)';
+    outerGlow = '0 0 0 3px #F4C76B, 0 0 36px 8px rgba(244, 199, 107, 0.85), 0 0 0 6px rgba(244, 199, 107, 0.25)';
     additionalClass = 'animate-bounce';
   } else if (multiplier === 100) {
-    outerGlow = '0 0 0 2px #ef4444, 0 0 24px 4px rgba(239, 68, 68, 0.6)';
+    outerGlow = '0 0 0 3px #ef4444, 0 0 28px 6px rgba(239, 68, 68, 0.75), 0 0 0 6px rgba(239, 68, 68, 0.2)';
     additionalClass = 'animate-fire';
   } else if (multiplier === 50) {
-    outerGlow = '0 0 0 2px #f97316, 0 0 20px 3px rgba(249, 115, 22, 0.5)';
+    outerGlow = '0 0 0 3px #f97316, 0 0 24px 5px rgba(249, 115, 22, 0.7), 0 0 0 6px rgba(249, 115, 22, 0.18)';
     additionalClass = 'animate-fire';
   } else if (selected) {
     outerGlow = '0 0 0 3px #FF6B4A, 0 0 20px 4px rgba(255, 107, 74, 0.6)';
@@ -93,7 +97,7 @@ export default function DominoTile({
       onClick={onClick}
       disabled={disabled}
       title={domino.label}
-      className={`relative flex flex-col items-center justify-center transition-all duration-200 ${additionalClass} disabled:opacity-30 disabled:cursor-not-allowed`}
+      className={`relative flex flex-col items-center justify-center transition-all duration-200 ${additionalClass} ${keepVisible ? '' : 'disabled:opacity-30'} disabled:cursor-not-allowed`}
       style={{
         background: isImage ? 'transparent' : bgPiece,
         border: 'none',
