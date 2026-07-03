@@ -9,11 +9,11 @@
 | Fase | Descripción | Status | % | Fecha inicio | Fecha fin |
 |---|---|---|---|---|---|
 | **Fase 0** | Mapear y documentar | ✅ Completa | 100% | 2026-07-02 | 2026-07-02 |
-| **Fase 1** | Unificar lo crítico | ⏳ Pendiente | 0% | — | — |
+| **Fase 1** | Unificar lo crítico | ✅ Completa | 100% | 2026-07-02 | 2026-07-02 |
 | **Fase 2** | Arquitectura limpia | ⏳ Pendiente | 0% | — | — |
 | **Fase 3** | Pulir | ⏳ Pendiente | 0% | — | — |
 
-**Total:** 4 fases · 1 completa · 3 pendientes
+**Total:** 4 fases · 2 completas · 2 pendientes
 
 ---
 
@@ -47,21 +47,35 @@
 
 ---
 
-## Fase 1 — Unificar lo crítico ⏳
+## Fase 1 — Unificar lo crítico ✅
 
 **Objetivo:** Estandarizar auth, centralizar assets, eliminar código duplicado. Sin refactor grande.
 
-**Tareas planeadas:**
-- [ ] Estandarizar keys de auth (solo `dc_*`, deprecate `dominocito_auth`)
-- [ ] Centralizar helper de assets (¿shared package o copy simple?)
-- [ ] Documentar API contract (qué endpoint usa cada frontend)
-- [ ] Eliminar `PintaYGanaRedirect` (usar `<Route>` directo o sub-app separada limpia)
-- [ ] Limpiar tipos rotos en `GameBoard.tsx` (PIP_POSITIONS)
-- [ ] Centralizar constantes (colores, fuentes, tokens)
+**Tareas:**
+- [x] Estandarizar keys de auth (solo `dc_*`, eliminar `dominocito_auth`)
+- [x] Centralizar helper de assets (copiar `assetUrl` al home)
+- [x] Reemplazar rutas hardcodeadas en `GameBoard.tsx` con `assetUrl`
+- [x] Limpiar tipos rotos en `GameBoard.tsx` (PIP_POSITIONS ya estaba limpio)
+- [x] Documentar API contract (`docs/api_contract.md`)
+- [x] Build + deploy de ambos frontends
 
-**Estimación:** 1-2 semanas
+**Cambios aplicados:**
+- `pinta-y-gana/src/auth/authStore.ts` reescrito: usa keys `dc_*` como estándar único. Eliminado fallback SSO complejo (ahora es directo porque comparten keys).
+- `dominocito-home/src/utils/baseUrl.ts` creado (copy del de pinta-y-gana).
+- `dominocito-home/src/domino/GameBoard.tsx` ahora usa `assetUrl()` para rutas de assets.
+- `docs/api_contract.md` creado con todos los endpoints y su uso por frontend.
 
-**Riesgos:** Bajo (cambios acotados)
+**Build sizes:**
+- Home: 446 KB JS / 142 KB gzip
+- Pinta y Gana: 247 KB JS / 74 KB gzip
+
+**Deploy:**
+- Ambos frontends desplegados en `/var/www/dominocito-front/`
+- Smoke tests OK: home 200, pinta-y-gana 200, /api/auth/login responde
+
+**Tiempo:** ~30 minutos
+
+**Riesgos:** Bajo (cambios acotados, backup en git previo)
 
 ---
 

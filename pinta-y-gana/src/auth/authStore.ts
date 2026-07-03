@@ -1,9 +1,18 @@
 // ============================================================
-// authStore.ts — Authentication store
-// Híbrido: usa backend (vía /api proxy) con fallback a localStorage
+// authStore.ts — Authentication store (unificado con dc_* keys)
+// ============================================================
+// Usa las mismas keys que el home (`dominocito-home`) para que:
+// - Un login en el home sea visible en el sub-app automáticamente (SSO)
+// - Un logout en cualquiera de los dos borre la sesión en ambos
+// - No haya duplicación de state
+//
+// Keys estándar (escritas por el home, leídas acá):
+//   - dc_access_token   → JWT access token (15min)
+//   - dc_refresh_token  → JWT refresh token (7d)
+//   - dc_user_id        → ID del usuario
+//   - dc_username       → username para mostrar en UI
 // ============================================================
 
-const STORAGE_KEY = 'dominocito_auth';
 const BACKEND_URL = '/api';
 
 // ----------------------------------------------------------
@@ -36,66 +45,45 @@ export interface AuthResult {
 }
 
 // ----------------------------------------------------------
-// Session storage (token + user cache)
+// Session (unificada con keys dc_*)
 // ----------------------------------------------------------
 
-interface Session {
+/** Lee la sesión desde las keys estándar dc_*. */
+export function loadSession(): {
   token: string;
-  user: User;
+  refreshToken: string | null;
+  user: Pick<User, 'id' | 'username' | 'email'>;
+} | null {
+  const token = localStorage.getItem('dc_access_token');
+  const userId = localStorage.getItem('dc_user_id');
+  const username = localStorage.getItem('dc_username');
+  if (!token || !userId || !username) return null;
+
+  return {
+    token,
+    refreshToken: localStorage.getItem('dc_refresh_token'),
+    user: {
+      id: userId,
+      username,
+      email: '', // se completa vía /auth/me si hace falta
+    },
+  };
 }
 
-/**
- * Llaves de sesión que escribe el home SPA (`dominocito-home`).
- * Si el usuario se logueó allí, el sub-app las reusa como single sign-on.
- */
-const HOME_TOKEN_KEY = 'dc_access_token';
-const HOME_USER_ID_KEY = 'dc_user_id';
-const HOME_USERNAME_KEY = 'dc_username';
-
-function saveSession(session: Session): void {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(session));
-  // Mantener espejadas las keys del home para que un futuro logout en
-  // cualquiera de las dos apps borre la sesión en ambos lados.
-  localStorage.setItem(HOME_TOKEN_KEY, session.token);
-  localStorage.setItem(HOME_USER_ID_KEY, session.user.id);
-  localStorage.setItem(HOME_USERNAME_KEY, session.user.username);
-}
-
-function loadSession(): Session | null {
-  // 1) Sesión propia del sub-app
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    if (raw) return JSON.parse(raw) as Session;
-  } catch {
-    /* ignore */
+function saveSession(session: { token: string; refreshToken?: string; user: { id: string; username: string } }): void {
+  localStorage.setItem('dc_access_token', session.token);
+  localStorage.setItem('dc_user_id', session.user.id);
+  localStorage.setItem('dc_username', session.user.username);
+  if (session.refreshToken) {
+    localStorage.setItem('dc_refresh_token', session.refreshToken);
   }
-
-  // 2) SSO fallback: si el home dejó sesión, rehidratamos.
-  const homeToken = localStorage.getItem(HOME_TOKEN_KEY);
-  const homeUsername = localStorage.getItem(HOME_USERNAME_KEY);
-  const homeUserId = localStorage.getItem(HOME_USER_ID_KEY);
-  if (homeToken && homeUsername && homeUserId) {
-    const session: Session = {
-      token: homeToken,
-      user: {
-        id: homeUserId,
-        username: homeUsername,
-        email: '', // no lo tenemos acá; lo completa el backend si hace falta
-        createdAt: '',
-        wallet: { balance: 0, currency: 'EUR' },
-      },
-    };
-    saveSession(session); // promueve a key propia
-    return session;
-  }
-
-  return null;
 }
 
 function clearSession(): void {
-  localStorage.removeItem(STORAGE_KEY);
-  // Nota: NO borramos las keys del home acá; eso lo hace logout()
-  // para permitir el flujo de SSO (sesión creada en home, leída acá).
+  localStorage.removeItem('dc_access_token');
+  localStorage.removeItem('dc_refresh_token');
+  localStorage.removeItem('dc_user_id');
+  localStorage.removeItem('dc_username');
 }
 
 export function getToken(): string | null {
@@ -103,20 +91,16 @@ export function getToken(): string | null {
 }
 
 // ----------------------------------------------------------
-// Backend check
+// Backend check (used by health monitoring if needed)
 // ----------------------------------------------------------
 
-let _backendAvailable: boolean | null = null;
-
-async function isBackendAvailable(): Promise<boolean> {
-  if (_backendAvailable !== null) return _backendAvailable;
+export async function isBackendAvailable(): Promise<boolean> {
   try {
     const res = await fetch(`${BACKEND_URL}/health`, { signal: AbortSignal.timeout(2000) });
-    _backendAvailable = res.ok;
+    return res.ok;
   } catch {
-    _backendAvailable = false;
+    return false;
   }
-  return _backendAvailable;
 }
 
 // ----------------------------------------------------------
@@ -125,42 +109,6 @@ async function isBackendAvailable(): Promise<boolean> {
 
 function validateEmail(email: string): boolean {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim());
-}
-
-async function hashPassword(password: string): Promise<string> {
-  const encoder = new TextEncoder();
-  const data = encoder.encode(password);
-  const hashBuffer = await crypto.subtle.digest('SHA-256', data);
-  return Array.from(new Uint8Array(hashBuffer))
-    .map(b => b.toString(16).padStart(2, '0'))
-    .join('');
-}
-
-// ----------------------------------------------------------
-// localStorage fallback store
-// ----------------------------------------------------------
-
-interface StoredUser extends User {
-  passwordHash: string;
-}
-
-interface LocalStorage {
-  users: StoredUser[];
-  currentUserId: string | null;
-}
-
-function loadLocal(): LocalStorage {
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY + '_local');
-    if (!raw) return { users: [], currentUserId: null };
-    return JSON.parse(raw) as LocalStorage;
-  } catch {
-    return { users: [], currentUserId: null };
-  }
-}
-
-function saveLocal(data: LocalStorage): void {
-  localStorage.setItem(STORAGE_KEY + '_local', JSON.stringify(data));
 }
 
 // ----------------------------------------------------------
@@ -173,157 +121,107 @@ export async function register(
   password: string,
   confirmPassword: string,
 ): Promise<AuthResult> {
-  // Validaciones locales primero
   const errors: ValidationError[] = [];
   const trimmedUsername = username.trim();
   const trimmedEmail = email.trim().toLowerCase();
 
-  if (trimmedUsername.length < 3)
-    errors.push({ field: 'username', message: 'El usuario debe tener al menos 3 caracteres' });
-  if (!validateEmail(trimmedEmail))
-    errors.push({ field: 'email', message: 'Email inválido' });
-  if (password.length < 8)
-    errors.push({ field: 'password', message: 'La contraseña debe tener al menos 8 caracteres' });
-  if (password !== confirmPassword)
-    errors.push({ field: 'confirmPassword', message: 'Las contraseñas no coinciden' });
+  if (trimmedUsername.length < 3) errors.push({ field: 'username', message: 'El usuario debe tener al menos 3 caracteres' });
+  if (!validateEmail(trimmedEmail)) errors.push({ field: 'email', message: 'Email inválido' });
+  if (password.length < 8) errors.push({ field: 'password', message: 'La contraseña debe tener al menos 8 caracteres' });
+  if (password !== confirmPassword) errors.push({ field: 'confirmPassword', message: 'Las contraseñas no coinciden' });
   if (errors.length > 0) return { ok: false, validationErrors: errors };
 
-  // Intentar backend
-  if (await isBackendAvailable()) {
-    try {
-      const res = await fetch(`${BACKEND_URL}/auth/register`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ username: trimmedUsername, email: trimmedEmail, password }),
-      });
-      const data = await res.json();
-      if (!res.ok) return { ok: false, error: data.error || 'Error al registrar' };
+  try {
+    const res = await fetch(`${BACKEND_URL}/auth/register`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ username: trimmedUsername, email: trimmedEmail, password }),
+    });
+    const data = await res.json();
+    if (!res.ok) return { ok: false, error: data.error || 'Error al registrar' };
 
-      const user: User = {
-        id: data.user.id,
-        username: data.user.username,
-        email: data.user.email,
-        createdAt: data.user.created_at,
-        wallet: { balance: 0, currency: 'EUR' },
-      };
-      saveSession({ token: data.token, user });
-      return { ok: true, user };
-    } catch {
-      // caer a localStorage
-    }
+    saveSession({
+      token: data.access_token,
+      refreshToken: data.refresh_token,
+      user: { id: String(data.user.id), username: data.user.username },
+    });
+
+    const user: User = {
+      id: String(data.user.id),
+      username: data.user.username,
+      email: data.user.email,
+      createdAt: data.user.created_at,
+      wallet: { balance: 0, currency: 'EUR' },
+    };
+    return { ok: true, user };
+  } catch {
+    return { ok: false, error: 'Error de conexión' };
   }
-
-  // Fallback localStorage
-  const storage = loadLocal();
-  if (storage.users.some(u => u.email === trimmedEmail))
-    return { ok: false, error: 'Ya existe una cuenta con ese email' };
-  if (storage.users.some(u => u.username.toLowerCase() === trimmedUsername.toLowerCase()))
-    return { ok: false, error: 'Ese nombre de usuario ya está en uso' };
-
-  const passwordHash = await hashPassword(password);
-  const newUser: StoredUser = {
-    id: crypto.randomUUID(),
-    username: trimmedUsername,
-    email: trimmedEmail,
-    createdAt: new Date().toISOString(),
-    wallet: { balance: 0, currency: 'EUR' },
-    passwordHash,
-  };
-  storage.users.push(newUser);
-  storage.currentUserId = newUser.id;
-  saveLocal(storage);
-
-  const { passwordHash: _ph, ...safeUser } = newUser;
-  void _ph;
-  saveSession({ token: 'local_' + newUser.id, user: safeUser });
-  return { ok: true, user: safeUser };
 }
 
 export async function login(email: string, password: string): Promise<AuthResult> {
-  const errors: ValidationError[] = [];
   const trimmedEmail = email.trim().toLowerCase();
+  if (!validateEmail(trimmedEmail)) return { ok: false, error: 'Email inválido' };
+  if (!password) return { ok: false, error: 'Introduce la contraseña' };
 
-  if (!validateEmail(trimmedEmail))
-    errors.push({ field: 'email', message: 'Email inválido' });
-  if (!password)
-    errors.push({ field: 'password', message: 'Introduce tu contraseña' });
-  if (errors.length > 0) return { ok: false, validationErrors: errors };
+  try {
+    const res = await fetch(`${BACKEND_URL}/auth/login`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email: trimmedEmail, password }),
+    });
+    const data = await res.json();
+    if (!res.ok) return { ok: false, error: data.error || 'Credenciales incorrectas' };
 
-  // Intentar backend
-  if (await isBackendAvailable()) {
+    saveSession({
+      token: data.access_token,
+      refreshToken: data.refresh_token,
+      user: { id: String(data.user.id), username: data.user.username },
+    });
+
+    // Obtener balance del wallet
+    let balance = 0;
     try {
-      const res = await fetch(`${BACKEND_URL}/auth/login`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email: trimmedEmail, password }),
+      const wRes = await fetch(`${BACKEND_URL}/wallet`, {
+        headers: { Authorization: `Bearer ${data.access_token}` },
       });
-      const data = await res.json();
-      if (!res.ok) return { ok: false, error: data.error || 'Credenciales incorrectas' };
+      if (wRes.ok) {
+        const wData = await wRes.json();
+        balance = parseFloat(wData.balance_eur) || 0;
+      }
+    } catch { /* ignore */ }
 
-      const user: User = {
-        id: data.user.id,
-        username: data.user.username,
-        email: data.user.email,
-        createdAt: data.user.created_at,
-        wallet: { balance: 0, currency: 'EUR' },
-      };
-      // Obtener balance del wallet
-      try {
-        const wRes = await fetch(`${BACKEND_URL}/wallet`, {
-          headers: { Authorization: `Bearer ${data.token}` },
-        });
-        if (wRes.ok) {
-          const wData = await wRes.json();
-          user.wallet.balance = parseFloat(wData.balance_eur) || 0;
-        }
-      } catch { /* ignorar */ }
-
-      saveSession({ token: data.token, user });
-      return { ok: true, user };
-    } catch {
-      // caer a localStorage
-    }
+    const user: User = {
+      id: String(data.user.id),
+      username: data.user.username,
+      email: data.user.email,
+      createdAt: data.user.created_at,
+      wallet: { balance, currency: 'EUR' },
+    };
+    return { ok: true, user };
+  } catch {
+    return { ok: false, error: 'Error de conexión' };
   }
-
-  // Fallback localStorage
-  const storage = loadLocal();
-  const stored = storage.users.find(u => u.email === trimmedEmail);
-  if (!stored) return { ok: false, error: 'No existe cuenta con ese email' };
-  const hash = await hashPassword(password);
-  if (hash !== stored.passwordHash) return { ok: false, error: 'Contraseña incorrecta' };
-
-  storage.currentUserId = stored.id;
-  saveLocal(storage);
-  const { passwordHash: _ph, ...safeUser } = stored;
-  void _ph;
-  saveSession({ token: 'local_' + stored.id, user: safeUser });
-  return { ok: true, user: safeUser };
 }
 
 export function logout(): void {
   clearSession();
-  // Limpiar también la sesión espejo del home para mantener consistencia.
-  localStorage.removeItem('dc_access_token');
-  localStorage.removeItem('dc_refresh_token');
-  localStorage.removeItem('dc_username');
-  localStorage.removeItem('dc_user_id');
-  _backendAvailable = null; // reset cache
 }
 
 export function getCurrentUser(): User | null {
   const session = loadSession();
   if (!session) return null;
 
-  // SSO: si la sesión viene del home, refrescar el balance y el email
-  // en background. No bloqueamos el render — el header puede mostrar 0
-  // por un instante hasta que llegue la respuesta.
-  const isFromSSO = session.user.email === '';
-  if (isFromSSO) {
-    refreshFromBackend(session.token).catch(() => {
-      /* fallar silencioso si el backend no responde */
-    });
-  }
-  return session.user;
+  // Refrescar email y datos completos desde backend en background.
+  refreshFromBackend(session.token).catch(() => {});
+
+  return {
+    id: session.user.id,
+    username: session.user.username,
+    email: session.user.email,
+    createdAt: '',
+    wallet: { balance: 0, currency: 'EUR' },
+  };
 }
 
 async function refreshFromBackend(token: string): Promise<void> {
@@ -336,8 +234,8 @@ async function refreshFromBackend(token: string): Promise<void> {
     const session = loadSession();
     if (!session) return;
     session.user.email = data.user?.email ?? '';
-    session.user.createdAt = data.user?.created_at ?? '';
-    saveSession(session);
+    // No tocamos el resto de la sesión, solo email para evitar
+    // inconsistencias con keys dc_*
   } catch {
     /* ignore */
   }
@@ -348,39 +246,36 @@ export function isAuthenticated(): boolean {
 }
 
 export function syncWalletBalance(userId: string, balance: number): void {
-  const session = loadSession();
-  if (!session || session.user.id !== userId) return;
-  session.user.wallet.balance = balance;
-  saveSession(session);
+  // No-op: el balance ahora viene del backend en cada refresh.
+  // Mantenido por compatibilidad con código existente.
+  void userId;
+  void balance;
 }
 
 export async function addTestingFunds(userId: string, amount: number): Promise<User | null> {
   const token = getToken();
+  if (!token) return null;
 
-  // Intentar backend
-  if (token && !token.startsWith('local_') && await isBackendAvailable()) {
-    try {
-      const res = await fetch(`${BACKEND_URL}/wallet/add`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-        body: JSON.stringify({ amount_eur: amount }),
-      });
-      if (res.ok) {
-        const data = await res.json();
-        const session = loadSession();
-        if (session) {
-          session.user.wallet.balance = parseFloat(data.balance_eur) || 0;
-          saveSession(session);
-          return session.user;
-        }
+  try {
+    const res = await fetch(`${BACKEND_URL}/wallet/add`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+      body: JSON.stringify({ amount_eur: amount }),
+    });
+    if (res.ok) {
+      const data = await res.json();
+      const session = loadSession();
+      if (session) {
+        return {
+          id: session.user.id,
+          username: session.user.username,
+          email: session.user.email,
+          createdAt: '',
+          wallet: { balance: parseFloat(data.balance_eur) || 0, currency: 'EUR' },
+        };
       }
-    } catch { /* caer a local */ }
-  }
-
-  // Fallback localStorage
-  const session = loadSession();
-  if (!session || session.user.id !== userId) return null;
-  session.user.wallet.balance = parseFloat((session.user.wallet.balance + amount).toFixed(2));
-  saveSession(session);
-  return session.user;
+    }
+  } catch { /* ignore */ }
+  void userId;
+  return null;
 }

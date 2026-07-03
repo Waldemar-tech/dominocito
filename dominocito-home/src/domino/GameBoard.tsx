@@ -1,7 +1,8 @@
 import { useState, useEffect, useMemo, useRef } from 'react'
 import { motion, AnimatePresence, useReducedMotion, LayoutGroup } from 'motion/react'
+import { assetUrl } from '../utils/baseUrl'
 
-const ASSETS = '/assets/casino'
+const ASSETS = assetUrl('/assets/casino')
 const TABLE_IMG = `${ASSETS}/domino-table-4trays.png`
 const AMBIENT_BG = `${ASSETS}/casino-ambient-bg.png`
 const TILES_DIR = `${ASSETS}/tiles`
