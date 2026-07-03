@@ -437,7 +437,7 @@ export default function App() {
         setAnimatingX50(true);
         animateHighlight(
           x50Target, // Lee del RNG guardado
-          5200, // Más lento
+          5500, // Igual a x100 y winner
           (id) => setAnimHighlightId(id),
           () => {
             // x50 terminado: validar contra RNG y fijar selectedX50
@@ -453,7 +453,7 @@ export default function App() {
               setAnimatingWinner(true);
               animateHighlight(
                 winner.id, // Lee del RNG guardado
-                4200,
+                5500, // Igual a x100 y x50
                 (id) => setAnimHighlightId(id),
                 () => {
                   // winner terminado: fijar selectedWinner
@@ -490,10 +490,10 @@ export default function App() {
       }, 500);
     };
 
-    // Empezar con x100 (4.5s, más lento y claro)
+    // Empezar con x100 (5.5s — mismo tiempo que x50 y winner para consistencia)
     animateHighlight(
       x100Target, // Lee del RNG guardado
-      4500,
+      5500,
       (id) => setAnimHighlightId(id),
       startX50,
       animFrameRef,
