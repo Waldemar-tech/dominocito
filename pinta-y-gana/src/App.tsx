@@ -142,9 +142,12 @@ function FloatingNav({
 
 // ═════════════════════════════════════════════════════════════════
 // ── Sorteo animation helper ─────────────────────────────────────
-// Recorre las 28 fichas en orden, desacelerando, hasta detenerse
-// en `targetId`. NO recalcula nada — solo refleja el resultado ya
-// calculado por el RNG.
+// Recorre las fichas en orden, desacelerando, hasta detenerse
+// EXACTAMENTE en `targetId` (la ficha que el RNG ya decidió).
+// NO recalcula nada — solo refleja el resultado del RNG.
+//
+// Regla dura: la animación SOLO visualiza el camino desde 0-0 hasta
+// la ficha del RNG. Nunca da vueltas, nunca se pasa del target.
 function animateHighlight(
   targetId: number,
   durationMs: number,
@@ -152,25 +155,47 @@ function animateHighlight(
   onDone: () => void,
   frameRef: { current: number | null },
 ) {
-  // Motor de animación: recorremos las 28 fichas una por una,
-  // con delay progresivamente más lento (rápido al inicio, lento al final).
-  // El targetId es FIJO — viene del RNG, nunca se recalcula.
-  //
-  // Ecuación de delay por step:
-  //   delay(step) = delayMin + (delayMax - delayMin) * (step / totalSteps)
-  //
-  // Para que la duración total ≈ durationMs:
-  //   sum_{i=1..totalSteps} (delayMin + (delayMax-delayMin) * i/totalSteps)
-  //   ≈ totalSteps * (delayMin + delayMax) / 2
-  // Entonces: totalSteps ≈ 2 * durationMs / (delayMin + delayMax)
-  //
-  // Con durationMs=3000, delayMin=70, delayMax=240: totalSteps ≈ 19
-  // Con durationMs=3500: totalSteps ≈ 22
-  // (puede ser menos de 28 si durationMs es corto — está bien, se recorre y listo)
+  // Cuántas fichas recorre desde 0-0 hasta el target (inclusive).
+  // Ej: target=0  -> steps=1 (solo en 0-0)
+  //     target=4  -> steps=5 (0,1,2,3,4)
+  //     target=27 -> steps=28 (recorrido completo)
+  const targetIndex = Math.max(0, Math.min(27, targetId));
+  const totalSteps = targetIndex + 1;
 
-  const delayMin = 70;  // ms al inicio
-  const delayMax = 240; // ms al final
-  const totalSteps = Math.max(15, Math.floor((2 * durationMs) / (delayMin + delayMax)));
+  // Duración base por ficha: queremos que fichas tempranas sean
+  // rápidas y fichas tardías duren más (≈ proporcional a totalSteps).
+  // Modelo: cada step tiene un delay que crece linealmente con su
+  // índice dentro del recorrido. El último step (target) es el más
+  // lento para que "aterrice" con suspense.
+  //
+  //   sum_{i=0..totalSteps-1} (delayMin + (delayMax-delayMin) * i/(totalSteps-1))
+  //   ≈ totalSteps * (delayMin + delayMax) / 2
+  // Para duración total ≈ durationMs:
+  //   totalSteps * (delayMin + delayMax) / 2 ≈ durationMs
+  //   => (delayMin + delayMax) ≈ 2 * durationMs / totalSteps
+  //
+  // Si totalSteps=1 (target=0): no animar, ir directo al done.
+  // Si totalSteps es muy chico (<3), igual animar con un par de frames.
+
+  let delayMin: number;
+  let delayMax: number;
+
+  if (totalSteps <= 1) {
+    // Caso edge: target=0. Pintar la ficha y terminar.
+    onTick(targetIndex);
+    frameRef.current = null;
+    onDone();
+    return () => {};
+  }
+
+  // Duración total ≈ totalSteps * (delayMin + delayMax) / 2
+  // => delayMin + delayMax = 2 * durationMs / totalSteps
+  // Elegimos delayMin rápido y delayMax un poco más lento (sensación de
+  // desaceleración) pero respetando el budget total.
+  const budget = (2 * durationMs) / totalSteps; // suma delayMin+delayMax
+  // Ratio 1:2.2 (rápido al inicio, más lento al final)
+  delayMin = Math.max(35, budget / 3.2);
+  delayMax = Math.min(380, budget - delayMin);
 
   let currentStep = 0;
   let cancelled = false;
@@ -178,28 +203,33 @@ function animateHighlight(
   const tick = () => {
     if (cancelled) return;
 
-    if (currentStep >= totalSteps) {
-      // Garantizar terminación EXACTA en targetId
-      onTick(targetId);
+    const idx = currentStep; // 0..totalSteps-1
+
+    // *** STOP CONDITION (la regla del task) ***
+    // Paramos EXACTAMENTE cuando llegamos al target.
+    // No más recorrido después de esto.
+    if (idx >= targetIndex) {
+      onTick(targetIndex); // garantizar que la última ficha es target
       frameRef.current = null;
       onDone();
       return;
     }
 
-    const idx = currentStep % 28;
     onTick(idx);
     currentStep++;
 
-    // Delay progresivo: lineal entre delayMin y delayMax
-    const progress = currentStep / totalSteps;
+    // Delay progresivo: lineal entre delayMin y delayMax.
+    // El último step (idx = targetIndex - 1) lleva el delay más largo
+    // para dar suspenso antes de aterrizar en el target.
+    const denom = Math.max(1, totalSteps - 1);
+    const progress = currentStep / denom;
     const delay = delayMin + (delayMax - delayMin) * progress;
     frameRef.current = window.setTimeout(tick, delay);
   };
 
-  // Cancelable via frameRef.current = null desde fuera
+  // Primer frame con delayMin
   frameRef.current = window.setTimeout(tick, delayMin);
 
-  // Devolvemos una función de cancel (no usada actualmente, pero disponible)
   return () => { cancelled = true; };
 }
 
