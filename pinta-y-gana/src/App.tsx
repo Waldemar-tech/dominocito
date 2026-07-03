@@ -433,7 +433,7 @@ export default function App() {
         setAnimatingX50(true);
         animateHighlight(
           x50Target, // Lee del RNG guardado
-          3500, // Más lento
+          5200, // Más lento
           (id) => setAnimHighlightId(id),
           () => {
             // x50 terminado: validar contra RNG y fijar selectedX50
@@ -469,10 +469,10 @@ export default function App() {
       }, 500);
     };
 
-    // Empezar con x100 (3s, más lento y claro)
+    // Empezar con x100 (4.5s, más lento y claro)
     animateHighlight(
       x100Target, // Lee del RNG guardado
-      3000,
+      4500,
       (id) => setAnimHighlightId(id),
       startX50,
       animFrameRef,
