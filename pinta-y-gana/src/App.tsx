@@ -152,35 +152,55 @@ function animateHighlight(
   onDone: () => void,
   frameRef: { current: number | null },
 ) {
-  // Easing: empezamos rápido, desaceleramos al final.
-  // Total ≈ durationMs. Asegura al menos 1.5 vueltas para que se sienta
-  // "rápido" antes de detenerse.
-  const start = performance.now();
-  const totalSteps = 28 + Math.floor((durationMs / 240) * 28); // vueltas dinámicas
-  let lastStep = 0;
+  // Motor de animación: recorremos las 28 fichas una por una,
+  // con delay progresivamente más lento (rápido al inicio, lento al final).
+  // El targetId es FIJO — viene del RNG, nunca se recalcula.
+  //
+  // Ecuación de delay por step:
+  //   delay(step) = delayMin + (delayMax - delayMin) * (step / totalSteps)
+  //
+  // Para que la duración total ≈ durationMs:
+  //   sum_{i=1..totalSteps} (delayMin + (delayMax-delayMin) * i/totalSteps)
+  //   ≈ totalSteps * (delayMin + delayMax) / 2
+  // Entonces: totalSteps ≈ 2 * durationMs / (delayMin + delayMax)
+  //
+  // Con durationMs=3000, delayMin=70, delayMax=240: totalSteps ≈ 19
+  // Con durationMs=3500: totalSteps ≈ 22
+  // (puede ser menos de 28 si durationMs es corto — está bien, se recorre y listo)
 
-  const step = (now: number) => {
-    const elapsed = now - start;
-    const progress = Math.min(elapsed / durationMs, 1);
-    // Easing curve: ease-out cubic → pasos lentos al final
-    const eased = 1 - Math.pow(1 - progress, 3);
-    const targetStep = Math.floor(eased * totalSteps);
+  const delayMin = 70;  // ms al inicio
+  const delayMax = 240; // ms al final
+  const totalSteps = Math.max(15, Math.floor((2 * durationMs) / (delayMin + delayMax)));
 
-    if (targetStep !== lastStep) {
-      lastStep = targetStep;
-      const idx = targetStep % 28;
-      onTick(idx);
-    }
+  let currentStep = 0;
+  let cancelled = false;
 
-    if (progress < 1) {
-      frameRef.current = requestAnimationFrame(step);
-    } else {
-      // Asegurar terminación exacta en targetId
+  const tick = () => {
+    if (cancelled) return;
+
+    if (currentStep >= totalSteps) {
+      // Garantizar terminación EXACTA en targetId
       onTick(targetId);
+      frameRef.current = null;
       onDone();
+      return;
     }
+
+    const idx = currentStep % 28;
+    onTick(idx);
+    currentStep++;
+
+    // Delay progresivo: lineal entre delayMin y delayMax
+    const progress = currentStep / totalSteps;
+    const delay = delayMin + (delayMax - delayMin) * progress;
+    frameRef.current = window.setTimeout(tick, delay);
   };
-  frameRef.current = requestAnimationFrame(step);
+
+  // Cancelable via frameRef.current = null desde fuera
+  frameRef.current = window.setTimeout(tick, delayMin);
+
+  // Devolvemos una función de cancel (no usada actualmente, pero disponible)
+  return () => { cancelled = true; };
 }
 
 // ═════════════════════════════════════════════════════════════════
@@ -208,8 +228,12 @@ export default function App() {
   const winAmountRef = useRef(0);
 
   // ── Animation state (x100 → x50 → reveal) ──
+  // rngResultX100 / rngResultX50: resultado del RNG seteado ANTES de animar.
+  // La animación LEE estos valores como stop condition. Nunca recalcula.
   // selectedX100 / selectedX50 se fijan SOLO cuando cada animación termina.
   // El highlight temporal (animHighlightId) es independiente del estado final.
+  const [rngResultX100, setRngResultX100] = useState<number | null>(null);
+  const [rngResultX50, setRngResultX50] = useState<number | null>(null);
   const [animatingX100, setAnimatingX100] = useState(false);
   const [selectedX100, setSelectedX100] = useState<number | null>(null);
   const [animatingX50, setAnimatingX50] = useState(false);
@@ -243,10 +267,12 @@ export default function App() {
   useEffect(() => {
     return () => {
       if (animFrameRef.current !== null) {
-        cancelAnimationFrame(animFrameRef.current);
+        clearTimeout(animFrameRef.current);
+        animFrameRef.current = null;
       }
       if (animTimeoutRef.current !== null) {
         clearTimeout(animTimeoutRef.current);
+        animTimeoutRef.current = null;
       }
     };
   }, []);
@@ -332,7 +358,7 @@ export default function App() {
     if (sorteo.status !== 'open') return;
     if (isAnimating) return; // anti-doble-click
 
-    // 1) Calcular resultado PRIMERO con RNG (única fuente de verdad)
+    // 1) RNG PRIMERO — calcular resultado, guardar ANTES de animar
     const resultado = cerrarYRevelar(sorteo);
     const { winner, multipliers, winAmount, userWon, payout } = resultado.result!;
 
@@ -344,37 +370,51 @@ export default function App() {
       winAmountRef.current = winAmount;
     }
 
-    // 3) Setear estado del sorteo INMEDIATAMENTE — la animación es solo visual
+    // 3) Setear estado del sorteo INMEDIATAMENTE
     setSorteo(resultado);
 
-    // 4) Resetear estados de selección previa (importante en re-sorteos)
+    // 4) **CRÍTICO**: guardar el resultado del RNG en estado ANTES de animar
+    //    La animación debe LEER estos valores como stop condition.
+    //    Nunca recalcular ni usar posición visual como resultado final.
+    const x100Target = multipliers.x100.id;
+    const x50Target = multipliers.x50.id;
+    setRngResultX100(x100Target);
+    setRngResultX50(x50Target);
+
+    // 5) Resetear estados de selección previa (importante en re-sorteos)
     setSelectedX100(null);
     setSelectedX50(null);
     setAnimHighlightId(0);
 
-    // 5) Iniciar secuencia de animación: x100 primero
+    // 6) Iniciar secuencia de animación: x100 primero
     setAnimatingX100(true);
 
     const startX50 = () => {
-      // x100 terminado: fijar selectedX100
-      setSelectedX100(multipliers.x100.id);
+      // x100 terminado: validar contra RNG y fijar selectedX100
+      if (x100Target !== rngResultX100) {
+        console.error('RNG mismatch x100:', x100Target, 'vs', rngResultX100);
+      }
+      setSelectedX100(x100Target);
       setAnimatingX100(false);
       setAnimHighlightId(null);
 
-      // Pequeña pausa antes de la siguiente animación
+      // Pausa antes de la siguiente animación
       animTimeoutRef.current = setTimeout(() => {
         setAnimatingX50(true);
         animateHighlight(
-          multipliers.x50.id,
-          3000,
+          x50Target, // Lee del RNG guardado
+          3500, // Más lento
           (id) => setAnimHighlightId(id),
           () => {
-            // x50 terminado: fijar selectedX50
-            setSelectedX50(multipliers.x50.id);
+            // x50 terminado: validar contra RNG y fijar selectedX50
+            if (x50Target !== rngResultX50) {
+              console.error('RNG mismatch x50:', x50Target, 'vs', rngResultX50);
+            }
+            setSelectedX50(x50Target);
             setAnimatingX50(false);
             setAnimHighlightId(null);
 
-            // Mostrar resultado final (winner, banner, partículas, historial)
+            // Mostrar resultado final
             let msg = `Ganó: ${winner.label}`;
             if (userWon) {
               msg += ` · ¡GANASTE €${winAmount.toFixed(2)}! (×${payout})`;
@@ -396,23 +436,23 @@ export default function App() {
           },
           animFrameRef,
         );
-      }, 400);
+      }, 500);
     };
 
-    // Empezar con x100 (2.5s)
+    // Empezar con x100 (3s, más lento y claro)
     animateHighlight(
-      multipliers.x100.id,
-      2500,
+      x100Target, // Lee del RNG guardado
+      3000,
       (id) => setAnimHighlightId(id),
       startX50,
       animFrameRef,
     );
-  }, [sorteo, wallet, isAnimating]);
+  }, [sorteo, wallet, isAnimating, rngResultX100, rngResultX50]);
 
   const handleNuevoSorteo = () => {
     // Cancelar animación pendiente si el user salta a nuevo sorteo
     if (animFrameRef.current !== null) {
-      cancelAnimationFrame(animFrameRef.current);
+      clearTimeout(animFrameRef.current);
       animFrameRef.current = null;
     }
     if (animTimeoutRef.current !== null) {
@@ -423,6 +463,8 @@ export default function App() {
     setSelectedX100(null);
     setAnimatingX50(false);
     setSelectedX50(null);
+    setRngResultX100(null);
+    setRngResultX50(null);
     setAnimHighlightId(null);
 
     setSorteo(crearSorteo(sorteo.banco));
