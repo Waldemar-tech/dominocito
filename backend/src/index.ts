@@ -15,6 +15,9 @@ import adminRoutes from './routes/admin';
 import walletRoutes from './routes/wallet';
 import dominoRoutes from './routes/domino';
 
+// tRPC (migración incremental — Fase 2.2)
+import { mountTrpc } from './trpc/mount';
+
 // Realtime
 import { setupDominoSocket } from './realtime/domino-socket';
 
@@ -151,6 +154,9 @@ app.get('/', (_req, res) => {
     },
   });
 });
+
+// ─── tRPC (incremental, coexiste con REST) ──────────────────
+mountTrpc(app);
 
 // ─── Routes ───────────────────────────────────────────────────
 app.use('/auth', authRoutes);

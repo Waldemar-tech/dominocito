@@ -89,7 +89,7 @@ function Hero({ onRegister }: { onRegister: () => void }) {
       <div
         className="absolute inset-0"
         style={{
-          backgroundImage: `url(${assetUrl('/assets/ChatGPT%20Image%20Jun%2029,%202026,%2010_59_00%20PM.png')})`,
+          backgroundImage: `url(${assetUrl('/assets/pinta-y-gana/ChatGPT%20Image%20Jun%2029,%202026,%2010_59_00%20PM.png')})`,
           backgroundSize: 'cover',
           backgroundPosition: 'center',
           backgroundRepeat: 'no-repeat',
@@ -289,7 +289,7 @@ function HowItWorks() {
                 }}
               >
                 <img
-                  src={assetUrl(`/assets/tiles/tile_${d.id.toString().padStart(2, '0')}_${d.high}-${d.low}.png`)}
+                  src={assetUrl(`/assets/pinta-y-gana/tiles/tile_${d.id.toString().padStart(2, '0')}_${d.high}-${d.low}.png`)}
                   alt={`${d.label}`}
                   draggable={false}
                   style={{

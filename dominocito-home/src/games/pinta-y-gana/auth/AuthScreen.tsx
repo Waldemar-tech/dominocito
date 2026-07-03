@@ -154,7 +154,7 @@ export default function AuthScreen({ onAuthenticated, onClose, initialMode = 'lo
           <div className="inline-flex items-center justify-center mb-4"
                style={{ filter: 'drop-shadow(0 4px 16px rgba(0,0,0,0.5))' }}>
             <img
-              src={assetUrl('/assets/Home%20-%20Domin%C3%B3cito-03.svg')}
+              src={assetUrl('/assets/pinta-y-gana/Home%20-%20Domin%C3%B3cito-03.svg')}
               alt="Dominócito"
               style={{ height: '40px', width: 'auto' }}
             />

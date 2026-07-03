@@ -79,7 +79,7 @@ function FloatingNav({
       {/* Logo wordmark */}
       <div className="flex items-center gap-2">
         <img
-          src={assetUrl('/assets/Home%20-%20Domin%C3%B3cito-03.svg')}
+          src={assetUrl('/assets/pinta-y-gana/Home%20-%20Domin%C3%B3cito-03.svg')}
           alt="Dominócito"
           style={{ height: '32px', width: 'auto' }}
         />
@@ -570,7 +570,7 @@ export default function App() {
       <div
         className="absolute inset-0 pointer-events-none"
         style={{
-          backgroundImage: `url(${assetUrl('/assets/ChatGPT%20Image%20Jun%2029,%202026,%2010_59_00%20PM.png')})`,
+          backgroundImage: `url(${assetUrl('/assets/pinta-y-gana/ChatGPT%20Image%20Jun%2029,%202026,%2010_59_00%20PM.png')})`,
           backgroundSize: 'cover',
           backgroundPosition: 'center',
           backgroundRepeat: 'no-repeat',

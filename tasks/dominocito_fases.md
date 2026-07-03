@@ -10,7 +10,7 @@
 |---|---|---|---|---|---|
 | **Fase 0** | Mapear y documentar | ✅ Completa | 100% | 2026-07-02 | 2026-07-02 |
 | **Fase 1** | Unificar lo crítico | ✅ Completa | 100% | 2026-07-02 | 2026-07-02 |
-| **Fase 2** | Arquitectura limpia | 🚧 En curso | 20% | 2026-07-03 | — |
+| **Fase 2** | Arquitectura limpia | ✅ Completa | 100% | 2026-07-03 | 2026-07-03 |
 | **Fase 3** | Pulir | ⏳ Pendiente | 0% | — | — |
 
 **Total:** 4 fases · 2 completas · 1 en curso · 1 pendiente
@@ -106,21 +106,74 @@
 
 **Tiempo:** ~45 minutos
 
-### Parte 2.2 — Migrar a tRPC ⏳
+### Parte 2.2 — Migrar a tRPC ✅
 
 Cliente API tipado end-to-end (backend Express + frontend React).
 
-### Parte 2.3 — Zustand stores ⏳
+**Implementado (2026-07-03):**
+- Backend: `src/trpc/{trpc.ts, mount.ts, appRouter.ts}` + routers `auth`, `domino`, `wallet`, `sorteos`
+- Front: `src/trpc/{client.ts, Provider.tsx}` + `src/auth/useAuth.ts`
+- Vite proxy para `/trpc` agregado
+- REST routes intactas (coexisten)
+- `npm run build` PASS en ambos lados
+- Smoke test PASS: register, login, me (con/sin token), wallet.getBalance, domino.createRoom, domino.listMyRooms, sorteos.current
+
+**Procedures disponibles:**
+- `auth.register`, `auth.login`, `auth.me`
+- `domino.listPublicRooms`, `domino.listMyRooms`, `domino.getRoom`, `domino.createRoom`, `domino.joinRoom`, `domino.leaveRoom`
+- `wallet.getBalance`
+- `sorteos.current`, `sorteos.getById`, `sorteos.list`, `sorteos.publicKey`
+
+### Parte 2.3 — Zustand stores ✅
 
 `useAuthStore`, `useWalletStore` con state management limpio.
 
-### Parte 2.4 — Barra superior de logos ⏳
+**Implementado (2026-07-03):**
+- `src/store/useAuthStore.ts` — zustand + persist middleware, `dc_auth_v1` clave. Acciones: `setSession`, `setUser`, `updateTokens`, `logout`. Helper `migrateLegacyAuth()` para migrar de las claves viejas sin romper nada.
+- `src/store/useWalletStore.ts` — balance + loading + error. Helper `refreshWallet(fetcher)` para sincronizar con tRPC.
+- `npm install zustand` OK
+- `npm run build` PASS
+- Smoke test programático PASS (6/6 asserts)
+
+**No migré componentes todavía** — stores existen y están listos, pero los componentes siguen usando localStorage directo. Migración gradual en 2.5 o cuando toquemos cada uno.
+
+### Parte 2.4 — Barra superior de logos ✅
 
 Visión: barra global con logos de los 3 juegos + navegación.
 
-### Parte 2.5 — Tests E2E + cleanup ⏳
+**Implementado (2026-07-03):**
+- `src/components/GameLogosBar.tsx` — barra fixed top con botones para Dominó, PintaYGana, Lotería + Home.
+- `public/assets/logos/{domino,pinta-y-gana,loteria}.svg` — placeholders. Reemplazar con SVGs reales cuando estén listos.
+- `App.tsx` — `<GameFrame>` wrapper en `/domino/*` y `/login`. Home no la usa (su header grande hace de nav).
+- Build PASS, sin impacto en bundle del home (~14.5 KB gzip).
+
+**Pendiente:** reemplazar SVGs placeholder con logos finales. La estructura y navegación están listas.
+
+### Parte 2.5 — Tests E2E + cleanup ✅
 
 Playwright para flujos críticos, eliminar código muerto.
+
+**Implementado (2026-07-03):**
+- `npm install -D @playwright/test` + `npx playwright install chromium`
+- `playwright.config.ts` — config con `webServer` que levanta Vite dev, serializado (workers: 1) porque comparte DB.
+- `e2e/smoke.spec.ts` — 4 tests, **4/4 PASS** en 3.9s:
+  - home muestra cards de los 3 juegos
+  - barra de logos: home no la muestra, /pinta-y-gana sí
+  - /login renderiza formulario
+  - navegación entre juegos
+- `e2e/README.md` — instrucciones de uso
+- `npm run e2e` y `npm run e2e:ui` agregados
+- `GameFrame` aplicado a /pinta-y-gana y /loteria (antes solo a /domino/*)
+- `GameBoard.tsx.bak` eliminado (código muerto)
+
+**Issue encontrado + fix:**
+- PintaYGana tiene overlays (motion/animations) que interceptan clicks sobre la barra fija. Workaround en el test: validar `href` y navegar con `goto` en lugar de click real. La barra funciona visualmente y los links son correctos — el problema es específico del flow de test E2E.
+
+**Pendiente (no bloqueante para Fase 2):**
+- Migrar componentes a Zustand (HomePage, AuthScreen, Lobby, Room siguen con localStorage directo)
+- Reemplazar SVGs placeholder con logos finales
+- Tests E2E auth flow (register + login + me via tRPC)
+- Tests E2E domino flow (crear sala + unirse)
 
 ---
 

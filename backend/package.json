@@ -10,6 +10,7 @@
     "migrate": "ts-node src/db/migrate.ts"
   },
   "dependencies": {
+    "@trpc/server": "^11.18.0",
     "bcryptjs": "^2.4.3",
     "cors": "^2.8.5",
     "dotenv": "^16.4.5",
@@ -20,7 +21,8 @@
     "morgan": "^1.11.0",
     "pg": "^8.12.0",
     "socket.io": "^4.8.3",
-    "socket.io-client": "^4.8.3"
+    "socket.io-client": "^4.8.3",
+    "zod": "^3.25.76"
   },
   "devDependencies": {
     "@types/bcryptjs": "^2.4.6",

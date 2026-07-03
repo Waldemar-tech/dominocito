@@ -17,6 +17,10 @@ export default defineConfig({
         changeOrigin: true,
         rewrite: (path) => path.replace(/^\/api/, ''),
       },
+      '/trpc': {
+        target: 'http://localhost:3200',
+        changeOrigin: true,
+      },
       '/socket.io': {
         target: 'http://localhost:3200',
         ws: true,
