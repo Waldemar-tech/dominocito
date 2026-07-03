@@ -1,11 +1,12 @@
 import type { Domino } from '../engine/dominoes';
+import { assetUrl } from '../utils/baseUrl';
 
 export type DominoTheme = 'ivory' | 'wood';
 export type DominoVariant = 'svg' | 'image';
 
 // Mapeo id -> nombre de archivo PNG (orden id = orden de las 28 fichas generadas)
 export function dominoToImagePath(d: Domino): string {
-  return `/assets/tiles/tile_${d.id.toString().padStart(2, '0')}_${d.high}-${d.low}.png`;
+  return assetUrl(`/assets/tiles/tile_${d.id.toString().padStart(2, '0')}_${d.high}-${d.low}.png`);
 }
 
 // Pip positions as percentages (para variant=svg)

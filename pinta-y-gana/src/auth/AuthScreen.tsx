@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { register, login } from './authStore';
 import type { User, ValidationError } from './authStore';
+import { assetUrl } from '../utils/baseUrl';
 
 interface AuthScreenProps {
   onAuthenticated: (user: User) => void;
@@ -153,7 +154,7 @@ export default function AuthScreen({ onAuthenticated, onClose, initialMode = 'lo
           <div className="inline-flex items-center justify-center mb-4"
                style={{ filter: 'drop-shadow(0 4px 16px rgba(0,0,0,0.5))' }}>
             <img
-              src="/assets/Home%20-%20Domin%C3%B3cito-03.svg"
+              src={assetUrl('/assets/Home%20-%20Domin%C3%B3cito-03.svg')}
               alt="Dominócito"
               style={{ height: '40px', width: 'auto' }}
             />

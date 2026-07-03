@@ -5,12 +5,18 @@ import morgan from 'morgan';
 import dotenv from 'dotenv';
 import { testConnection } from './db/pool';
 import { initSigningKeys } from './crypto/signing';
+import { createServer } from 'http';
+import { Server as SocketIOServer } from 'socket.io';
 
 // Routes
 import authRoutes from './routes/auth';
 import sorteoRoutes from './routes/sorteos';
 import adminRoutes from './routes/admin';
 import walletRoutes from './routes/wallet';
+import dominoRoutes from './routes/domino';
+
+// Realtime
+import { setupDominoSocket } from './realtime/domino-socket';
 
 dotenv.config();
 
@@ -151,6 +157,7 @@ app.use('/auth', authRoutes);
 app.use('/sorteos', sorteoRoutes);
 app.use('/admin', adminRoutes);
 app.use('/wallet', walletRoutes);
+app.use('/domino', dominoRoutes);
 
 // ─── 404 handler ─────────────────────────────────────────────
 app.use((_req, res) => {
@@ -175,14 +182,32 @@ async function main() {
     // Initialize ECDSA signing keys
     initSigningKeys();
 
-    app.listen(PORT, () => {
+    // Create HTTP server (needed for Socket.IO)
+    const httpServer = createServer(app);
+
+    // Setup Socket.IO
+    const io = new SocketIOServer(httpServer, {
+      cors: {
+        origin: corsOrigin || 'http://localhost:5173',
+        credentials: true,
+      },
+      pingTimeout: 60000,
+      pingInterval: 25000,
+    });
+
+    // Setup domino realtime handlers
+    setupDominoSocket(io);
+
+    httpServer.listen(PORT, () => {
       console.log(`🎲 Dominócito Backend v2.0 running on http://localhost:${PORT}`);
+      console.log(`🔌 Socket.IO ready on ws://localhost:${PORT}`);
       console.log(`📡 CORS allowed for: ${process.env.CORS_ORIGIN || 'http://localhost:5173'}`);
       console.log(`🗄️  DB: ${process.env.DB_HOST}:${process.env.DB_PORT}/${process.env.DB_NAME}`);
       console.log(`🔒 JWT: 15min access + 7d refresh tokens`);
       console.log(`🔒 Encryption: ${process.env.ENCRYPTION_KEY ? 'AES-256-GCM enabled' : 'DISABLED (set ENCRYPTION_KEY)'}`);
       console.log(`🔒 ECDSA: P-256 signing enabled`);
       console.log(`🎲 Provably Fair RNG: enabled`);
+      console.log(`🁢 Dominó Clásico (Modelo C): Socket.IO rooms enabled`);
       if (NODE_ENV !== 'production') {
         console.log(`⚠️  Running in ${NODE_ENV} mode — some production guards relaxed`);
       }

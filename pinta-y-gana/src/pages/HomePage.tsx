@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { DOMINOES } from '../engine/dominoes';
+import { assetUrl } from '../utils/baseUrl';
 
 interface HomePageProps {
   onRegister: () => void;
@@ -88,7 +89,7 @@ function Hero({ onRegister }: { onRegister: () => void }) {
       <div
         className="absolute inset-0"
         style={{
-          backgroundImage: 'url(/assets/ChatGPT%20Image%20Jun%2029,%202026,%2010_59_00%20PM.png)',
+          backgroundImage: `url(${assetUrl('/assets/ChatGPT%20Image%20Jun%2029,%202026,%2010_59_00%20PM.png')})`,
           backgroundSize: 'cover',
           backgroundPosition: 'center',
           backgroundRepeat: 'no-repeat',
@@ -288,7 +289,7 @@ function HowItWorks() {
                 }}
               >
                 <img
-                  src={`/assets/tiles/tile_${d.id.toString().padStart(2, '0')}_${d.high}-${d.low}.png`}
+                  src={assetUrl(`/assets/tiles/tile_${d.id.toString().padStart(2, '0')}_${d.high}-${d.low}.png`)}
                   alt={`${d.label}`}
                   draggable={false}
                   style={{

@@ -1,0 +1,18 @@
+# Dominócito Cloudflare Tunnel config
+# Colocar en: /etc/cloudflared/config.yml (Linux) o %ProgramData%\cloudflared\config.yml (Windows)
+
+tunnel: dominocito-prod
+credentials-file: /etc/cloudflared/dominocito-prod.json
+
+ingress:
+  - hostname: dominocito.com
+    service: http://localhost:80
+    originRequest:
+      connectTimeout: 30s
+      noHappyEyeballs: true
+  - hostname: www.dominocito.com
+    service: http://localhost:80
+    originRequest:
+      connectTimeout: 30s
+      noHappyEyeballs: true
+  - service: http_status:404

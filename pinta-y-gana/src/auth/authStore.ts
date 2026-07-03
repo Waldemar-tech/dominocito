@@ -44,22 +44,58 @@ interface Session {
   user: User;
 }
 
+/**
+ * Llaves de sesión que escribe el home SPA (`dominocito-home`).
+ * Si el usuario se logueó allí, el sub-app las reusa como single sign-on.
+ */
+const HOME_TOKEN_KEY = 'dc_access_token';
+const HOME_USER_ID_KEY = 'dc_user_id';
+const HOME_USERNAME_KEY = 'dc_username';
+
 function saveSession(session: Session): void {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(session));
+  // Mantener espejadas las keys del home para que un futuro logout en
+  // cualquiera de las dos apps borre la sesión en ambos lados.
+  localStorage.setItem(HOME_TOKEN_KEY, session.token);
+  localStorage.setItem(HOME_USER_ID_KEY, session.user.id);
+  localStorage.setItem(HOME_USERNAME_KEY, session.user.username);
 }
 
 function loadSession(): Session | null {
+  // 1) Sesión propia del sub-app
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
-    if (!raw) return null;
-    return JSON.parse(raw) as Session;
+    if (raw) return JSON.parse(raw) as Session;
   } catch {
-    return null;
+    /* ignore */
   }
+
+  // 2) SSO fallback: si el home dejó sesión, rehidratamos.
+  const homeToken = localStorage.getItem(HOME_TOKEN_KEY);
+  const homeUsername = localStorage.getItem(HOME_USERNAME_KEY);
+  const homeUserId = localStorage.getItem(HOME_USER_ID_KEY);
+  if (homeToken && homeUsername && homeUserId) {
+    const session: Session = {
+      token: homeToken,
+      user: {
+        id: homeUserId,
+        username: homeUsername,
+        email: '', // no lo tenemos acá; lo completa el backend si hace falta
+        createdAt: '',
+        wallet: { balance: 0, currency: 'EUR' },
+      },
+    };
+    saveSession(session); // promueve a key propia
+    return session;
+  }
+
+  return null;
 }
 
 function clearSession(): void {
   localStorage.removeItem(STORAGE_KEY);
+  // Nota: NO borramos las keys del home acá; eso lo hace logout()
+  // para permitir el flujo de SSO (sesión creada en home, leída acá).
 }
 
 export function getToken(): string | null {
@@ -266,11 +302,45 @@ export async function login(email: string, password: string): Promise<AuthResult
 
 export function logout(): void {
   clearSession();
+  // Limpiar también la sesión espejo del home para mantener consistencia.
+  localStorage.removeItem('dc_access_token');
+  localStorage.removeItem('dc_refresh_token');
+  localStorage.removeItem('dc_username');
+  localStorage.removeItem('dc_user_id');
   _backendAvailable = null; // reset cache
 }
 
 export function getCurrentUser(): User | null {
-  return loadSession()?.user || null;
+  const session = loadSession();
+  if (!session) return null;
+
+  // SSO: si la sesión viene del home, refrescar el balance y el email
+  // en background. No bloqueamos el render — el header puede mostrar 0
+  // por un instante hasta que llegue la respuesta.
+  const isFromSSO = session.user.email === '';
+  if (isFromSSO) {
+    refreshFromBackend(session.token).catch(() => {
+      /* fallar silencioso si el backend no responde */
+    });
+  }
+  return session.user;
+}
+
+async function refreshFromBackend(token: string): Promise<void> {
+  try {
+    const res = await fetch(`${BACKEND_URL}/auth/me`, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    if (!res.ok) return;
+    const data = await res.json();
+    const session = loadSession();
+    if (!session) return;
+    session.user.email = data.user?.email ?? '';
+    session.user.createdAt = data.user?.created_at ?? '';
+    saveSession(session);
+  } catch {
+    /* ignore */
+  }
 }
 
 export function isAuthenticated(): boolean {
