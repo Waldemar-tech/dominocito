@@ -10,10 +10,10 @@
 |---|---|---|---|---|---|
 | **Fase 0** | Mapear y documentar | ✅ Completa | 100% | 2026-07-02 | 2026-07-02 |
 | **Fase 1** | Unificar lo crítico | ✅ Completa | 100% | 2026-07-02 | 2026-07-02 |
-| **Fase 2** | Arquitectura limpia | ⏳ Pendiente | 0% | — | — |
+| **Fase 2** | Arquitectura limpia | 🚧 En curso | 20% | 2026-07-03 | — |
 | **Fase 3** | Pulir | ⏳ Pendiente | 0% | — | — |
 
-**Total:** 4 fases · 2 completas · 2 pendientes
+**Total:** 4 fases · 2 completas · 1 en curso · 1 pendiente
 
 ---
 
@@ -79,25 +79,48 @@
 
 ---
 
-## Fase 2 — Arquitectura limpia ⏳
+## Fase 2 — Arquitectura limpia 🚧
 
-**Objetivo:** Decidir estructura de largo plazo. SPA única vs 2 SPAs. Cliente API tipado.
+**Objetivo:** Decidir y aplicar estructura de largo plazo. SPA única multi-juego con tRPC, Zustand, tests E2E.
 
-**Decisiones pendientes:**
-- ¿Una SPA multi-juego o mantener 2?
-- ¿tRPC o cliente API custom?
-- ¿Estado de dominó en memoria o persistente (Redis)?
+**Decisión tomada:** SPA única multi-juego con código splitting por ruta.
 
-**Tareas planeadas (dependen de decisiones):**
-- [ ] Si SPA única: integrar pinta-y-gana como ruta
-- [ ] Cliente API tipado (tRPC, Eden, o REST con tipos compartidos)
-- [ ] State management (Zustand, Redux, o Context)
-- [ ] Tests E2E del flujo completo
-- [ ] Manejo de errores consistente
+### Parte 2.1 — Mover Pinta y Gana al home ✅
 
-**Estimación:** 2-3 semanas
+**Tareas:**
+- [x] Crear estructura `dominocito-home/src/games/pinta-y-gana/`
+- [x] Mover archivos (componentes, engine, auth, pages, utils)
+- [x] Mover assets a `dominocito-home/public/assets/pinta-y-gana/`
+- [x] Implementar lazy loading con `React.lazy()` para code splitting
+- [x] Crear `games/loteria/LoteriaPage.tsx` con lazy loading también
+- [x] Limpiar `App.tsx` del home: rutas + fallback
+- [x] Eliminar sub-app vieja del server (`/var/www/dominocito-front/pinta-y-gana/`)
+- [x] Build + deploy + smoke tests
 
-**Riesgos:** Medio (cambios amplios)
+**Resultados:**
+- Bundle principal: 447 KB JS → **142 KB gzip** (home + dominó, igual que antes)
+- Chunk Pinta y Gana: 55 KB → **14 KB gzip** (lazy, se descarga al navegar)
+- Chunk Lotería: 0.67 KB → 0.42 KB gzip
+- `/pinta-y-gana` y `/loteria` ahora son SPA routes del home
+- Cero sub-app separada en el server
+
+**Tiempo:** ~45 minutos
+
+### Parte 2.2 — Migrar a tRPC ⏳
+
+Cliente API tipado end-to-end (backend Express + frontend React).
+
+### Parte 2.3 — Zustand stores ⏳
+
+`useAuthStore`, `useWalletStore` con state management limpio.
+
+### Parte 2.4 — Barra superior de logos ⏳
+
+Visión: barra global con logos de los 3 juegos + navegación.
+
+### Parte 2.5 — Tests E2E + cleanup ⏳
+
+Playwright para flujos críticos, eliminar código muerto.
 
 ---
 
