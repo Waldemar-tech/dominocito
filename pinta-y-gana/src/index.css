@@ -127,6 +127,19 @@ body {
   100% { transform: scale(1.08); }
 }
 
+/* ── Highlight pulses para animación de sorteo ── */
+@keyframes anim-highlight-x50 {
+  0%   { transform: scale(1.05) translateY(-2px); }
+  50%  { transform: scale(1.22) translateY(-8px); }
+  100% { transform: scale(1.18) translateY(-6px); }
+}
+
+@keyframes anim-highlight-x100 {
+  0%   { transform: scale(1.05) translateY(-2px); }
+  50%  { transform: scale(1.26) translateY(-10px); }
+  100% { transform: scale(1.18) translateY(-6px); }
+}
+
 @keyframes celebrate {
   0%   { transform: scale(1)    rotate(0deg); }
   25%  { transform: scale(1.05) rotate(-1deg); }
@@ -163,6 +176,8 @@ body {
 .animate-glow-pulse       { animation: glow-pulse 2s ease-in-out infinite; }
 .animate-gold-pulse       { animation: gold-pulse 1.5s ease-in-out infinite; }
 .animate-fire             { animation: fire-flicker 0.8s ease-in-out infinite; }
+.animate-anim-highlight-x50  { animation: anim-highlight-x50 0.18s ease-out; }
+.animate-anim-highlight-x100 { animation: anim-highlight-x100 0.18s ease-out; }
 .animate-win-burst        { animation: win-burst 0.5s cubic-bezier(0.34, 1.56, 0.64, 1) forwards; }
 .animate-float-in         { animation: float-in 0.4s ease-out forwards; }
 .animate-countdown-urgent { animation: countdown-urgent 0.8s ease-in-out infinite; }

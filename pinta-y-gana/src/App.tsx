@@ -141,6 +141,49 @@ function FloatingNav({
 }
 
 // ═════════════════════════════════════════════════════════════════
+// ── Sorteo animation helper ─────────────────────────────────────
+// Recorre las 28 fichas en orden, desacelerando, hasta detenerse
+// en `targetId`. NO recalcula nada — solo refleja el resultado ya
+// calculado por el RNG.
+function animateHighlight(
+  targetId: number,
+  durationMs: number,
+  onTick: (id: number) => void,
+  onDone: () => void,
+  frameRef: { current: number | null },
+) {
+  // Easing: empezamos rápido, desaceleramos al final.
+  // Total ≈ durationMs. Asegura al menos 1.5 vueltas para que se sienta
+  // "rápido" antes de detenerse.
+  const start = performance.now();
+  const totalSteps = 28 + Math.floor((durationMs / 240) * 28); // vueltas dinámicas
+  let lastStep = 0;
+
+  const step = (now: number) => {
+    const elapsed = now - start;
+    const progress = Math.min(elapsed / durationMs, 1);
+    // Easing curve: ease-out cubic → pasos lentos al final
+    const eased = 1 - Math.pow(1 - progress, 3);
+    const targetStep = Math.floor(eased * totalSteps);
+
+    if (targetStep !== lastStep) {
+      lastStep = targetStep;
+      const idx = targetStep % 28;
+      onTick(idx);
+    }
+
+    if (progress < 1) {
+      frameRef.current = requestAnimationFrame(step);
+    } else {
+      // Asegurar terminación exacta en targetId
+      onTick(targetId);
+      onDone();
+    }
+  };
+  frameRef.current = requestAnimationFrame(step);
+}
+
+// ═════════════════════════════════════════════════════════════════
 export default function App() {
   // ── Auth state ──
   const [currentUser, setCurrentUser] = useState<User | null>(() => getCurrentUser());
@@ -164,6 +207,13 @@ export default function App() {
   const [showWinBanner, setShowWinBanner] = useState(false);
   const winAmountRef = useRef(0);
 
+  // ── Animation state (x50 → x100 → reveal) ──
+  const [isAnimating, setIsAnimating] = useState(false);
+  const [animPhase, setAnimPhase] = useState<'idle' | 'x50' | 'x100' | 'done'>('idle');
+  const [animHighlightId, setAnimHighlightId] = useState<number | null>(null);
+  const animFrameRef = useRef<number | null>(null);
+  const animTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
   // Persist wallet
   useEffect(() => {
     if (currentUser) {
@@ -181,6 +231,18 @@ export default function App() {
     }, 1000);
     return () => clearInterval(checkCierre);
   }, [sorteo.nextSorteoAt]);
+
+  // Cleanup de animación al desmontar
+  useEffect(() => {
+    return () => {
+      if (animFrameRef.current !== null) {
+        cancelAnimationFrame(animFrameRef.current);
+      }
+      if (animTimeoutRef.current !== null) {
+        clearTimeout(animTimeoutRef.current);
+      }
+    };
+  }, []);
 
   // Auth callbacks
   const handleAuthenticated = (user: User) => {
@@ -261,39 +323,90 @@ export default function App() {
   const handleSorteo = useCallback((e?: React.MouseEvent | void) => {
     void e;
     if (sorteo.status !== 'open') return;
+    if (isAnimating) return; // anti-doble-click
+
+    // 1) Calcular resultado PRIMERO con RNG (única fuente de verdad)
     const resultado = cerrarYRevelar(sorteo);
+    const { winner, multipliers, winAmount, userWon, payout } = resultado.result!;
+
+    // 2) Acreditar premio inmediatamente si ganó (no depende de animación)
+    if (userWon) {
+      const newWallet = { ...wallet, historial: [...wallet.historial] };
+      acreditarPremio(newWallet, winAmount, `Premio ×${payout} en ${winner.label}`);
+      setWallet(newWallet);
+      winAmountRef.current = winAmount;
+    }
+
+    // 3) Setear estado del sorteo INMEDIATAMENTE — la animación es solo visual
     setSorteo(resultado);
 
-    if (resultado.result) {
-      const { winner, multipliers, winAmount, userWon, payout } = resultado.result;
-      let msg = `Ganó: ${winner.label}`;
+    // 4) Iniciar secuencia de animación
+    setIsAnimating(true);
+    setAnimPhase('x50');
+    setAnimHighlightId(0);
 
-      if (userWon) {
-        const newWallet = { ...wallet, historial: [...wallet.historial] };
-        acreditarPremio(newWallet, winAmount, `Premio ×${payout} en ${winner.label}`);
-        setWallet(newWallet);
-        msg += ` · ¡GANASTE €${winAmount.toFixed(2)}! (×${payout})`;
-        winAmountRef.current = winAmount;
-        setShowWinBanner(true);
-        setShowParticles(true);
-        setTimeout(() => setShowParticles(false), 3000);
-        setTimeout(() => setShowWinBanner(false), 6000);
-      } else if (sorteo.bets.length > 0) {
-        msg += ' · No fue esta vez';
-      }
+    const startX100 = () => {
+      setAnimPhase('x100');
+      animateHighlight(
+        multipliers.x100.id,
+        2500, // x100 un poco más corta (crescendo)
+        (id) => setAnimHighlightId(id),
+        () => {
+          // Fase final: mostrar ganador
+          setAnimPhase('done');
+          setAnimHighlightId(null);
+          setIsAnimating(false);
 
-      msg += ` | ×50→${multipliers.x50.label} ×100→${multipliers.x100.label}`;
-      setHistorial(h => [{
-        id: crypto.randomUUID(),
-        msg,
-        won: !!userWon,
-        ts: new Date(),
-      }, ...h.slice(0, 9)]);
-      setMessage('');
-    }
-  }, [sorteo, wallet]);
+          // Historial + UI de victoria (después de la animación)
+          let msg = `Ganó: ${winner.label}`;
+          if (userWon) {
+            msg += ` · ¡GANASTE €${winAmount.toFixed(2)}! (×${payout})`;
+            setShowWinBanner(true);
+            setShowParticles(true);
+            setTimeout(() => setShowParticles(false), 3000);
+            setTimeout(() => setShowWinBanner(false), 6000);
+          } else if (sorteo.bets.length > 0) {
+            msg += ' · No fue esta vez';
+          }
+          msg += ` | ×50→${multipliers.x50.label} ×100→${multipliers.x100.label}`;
+          setHistorial(h => [{
+            id: crypto.randomUUID(),
+            msg,
+            won: !!userWon,
+            ts: new Date(),
+          }, ...h.slice(0, 9)]);
+          setMessage('');
+        },
+        animFrameRef,
+      );
+    };
+
+    animateHighlight(
+      multipliers.x50.id,
+      3000, // x50 más larga para construir tensión
+      (id) => setAnimHighlightId(id),
+      () => {
+        // Pausa breve entre fases
+        animTimeoutRef.current = setTimeout(startX100, 400);
+      },
+      animFrameRef,
+    );
+  }, [sorteo, wallet, isAnimating]);
 
   const handleNuevoSorteo = () => {
+    // Cancelar animación pendiente si el user salta a nuevo sorteo
+    if (animFrameRef.current !== null) {
+      cancelAnimationFrame(animFrameRef.current);
+      animFrameRef.current = null;
+    }
+    if (animTimeoutRef.current !== null) {
+      clearTimeout(animTimeoutRef.current);
+      animTimeoutRef.current = null;
+    }
+    setIsAnimating(false);
+    setAnimPhase('idle');
+    setAnimHighlightId(null);
+
     setSorteo(crearSorteo(sorteo.banco));
     setSelectedId(null);
     setMessage('');
@@ -593,42 +706,63 @@ export default function App() {
                 <div className="text-center">
                   {sorteo.status === 'revealed' ? (
                     <div className="space-y-3">
-                      <div className="text-xs font-black tracking-widest" style={{ color: 'var(--walnut)', opacity: 0.7 }}>
-                        PIEDRA GANADORA
-                      </div>
-                      <div
-                        className="text-6xl font-black"
-                        style={{ fontFamily: 'var(--font-display)' }}
-                      >
-                        {winner?.label}
-                      </div>
-                      <div className="flex justify-center gap-2">
-                        <div
-                          className="px-3 py-1 rounded-full text-xs font-bold"
-                          style={{ background: 'rgba(249, 115, 22, 0.18)', color: '#ea580c' }}
-                        >
-                          ×50 {mults?.x50.label}
-                        </div>
-                        <div
-                          className="px-3 py-1 rounded-full text-xs font-bold"
-                          style={{ background: 'rgba(239, 68, 68, 0.18)', color: '#dc2626' }}
-                        >
-                          ×100 {mults?.x100.label}
-                        </div>
-                      </div>
-                      <button
-                        onClick={handleNuevoSorteo}
-                        className="mt-2 px-6 py-3 rounded-full font-black text-sm transition-all"
-                        style={{
-                          background: '#D4A24A',
-                          color: 'white',
-                          border: 'none',
-                          cursor: 'pointer',
-                          boxShadow: '0 4px 12px rgba(212, 162, 74, 0.4)',
-                        }}
-                      >
-                        Nuevo sorteo →
-                      </button>
+                      {isAnimating ? (
+                        <>
+                          <div className="text-xs font-black tracking-widest animate-pulse"
+                               style={{ color: 'var(--walnut)', opacity: 0.7 }}>
+                            🎲 SORTEANDO...
+                          </div>
+                          <div
+                            className="text-6xl font-black animate-pulse"
+                            style={{ fontFamily: 'var(--font-display)', color: 'var(--walnut)', opacity: 0.3 }}
+                          >
+                            {animHighlightId !== null ? DOMINOES[animHighlightId].label : '—'}
+                          </div>
+                          <div className="text-xs font-bold" style={{ color: 'var(--walnut)', opacity: 0.55 }}>
+                            {animPhase === 'x50' && '🔥 ×50'}
+                            {animPhase === 'x100' && '💥 ×100'}
+                          </div>
+                        </>
+                      ) : (
+                        <>
+                          <div className="text-xs font-black tracking-widest" style={{ color: 'var(--walnut)', opacity: 0.7 }}>
+                            PIEDRA GANADORA
+                          </div>
+                          <div
+                            className="text-6xl font-black"
+                            style={{ fontFamily: 'var(--font-display)' }}
+                          >
+                            {winner?.label}
+                          </div>
+                          <div className="flex justify-center gap-2">
+                            <div
+                              className="px-3 py-1 rounded-full text-xs font-bold"
+                              style={{ background: 'rgba(249, 115, 22, 0.18)', color: '#ea580c' }}
+                            >
+                              ×50 {mults?.x50.label}
+                            </div>
+                            <div
+                              className="px-3 py-1 rounded-full text-xs font-bold"
+                              style={{ background: 'rgba(239, 68, 68, 0.18)', color: '#dc2626' }}
+                            >
+                              ×100 {mults?.x100.label}
+                            </div>
+                          </div>
+                          <button
+                            onClick={handleNuevoSorteo}
+                            className="mt-2 px-6 py-3 rounded-full font-black text-sm transition-all"
+                            style={{
+                              background: '#D4A24A',
+                              color: 'white',
+                              border: 'none',
+                              cursor: 'pointer',
+                              boxShadow: '0 4px 12px rgba(212, 162, 74, 0.4)',
+                            }}
+                          >
+                            Nuevo sorteo →
+                          </button>
+                        </>
+                      )}
                     </div>
                   ) : (
                     <Countdown targetDate={sorteo.nextSorteoAt} onExpire={handleSorteo} />
@@ -786,10 +920,19 @@ export default function App() {
                       </button>
                       <button
                         onClick={handleSorteo}
-                        className="flex-1 py-2 rounded-full text-xs font-bold"
-                        style={{ background: 'rgba(124, 58, 237, 0.2)', color: '#7c3aed', border: '1px solid rgba(124, 58, 237, 0.4)', cursor: 'pointer' }}
+                        disabled={isAnimating}
+                        className="flex-1 py-2 rounded-full text-xs font-bold transition-opacity"
+                        style={{
+                          background: isAnimating
+                            ? 'rgba(124, 58, 237, 0.08)'
+                            : 'rgba(124, 58, 237, 0.2)',
+                          color: isAnimating ? 'rgba(124, 58, 237, 0.4)' : '#7c3aed',
+                          border: '1px solid rgba(124, 58, 237, 0.4)',
+                          cursor: isAnimating ? 'not-allowed' : 'pointer',
+                          opacity: isAnimating ? 0.5 : 1,
+                        }}
                       >
-                        ▶ Sortear ahora
+                        {isAnimating ? '⏳ Sorteando...' : '▶ Sortear ahora'}
                       </button>
                     </div>
                   )}
@@ -861,9 +1004,13 @@ export default function App() {
                     isWinner={winner?.id === d.id}
                     betAmount={betsByDomino[d.id]}
                     onClick={() => handleSelectDomino(d.id)}
-                    disabled={sorteo.status !== 'open' || apuestasCerradas}
+                    disabled={sorteo.status !== 'open' || apuestasCerradas || isAnimating}
                     theme={theme}
                     variant={'image' as DominoVariant}
+                    isAnimHighlight={isAnimating && animHighlightId === d.id}
+                    animHighlightKind={
+                      animPhase === 'x50' ? 'x50' : animPhase === 'x100' ? 'x100' : null
+                    }
                   />
                 ))}
               </div>
@@ -913,12 +1060,14 @@ export default function App() {
               {TESTING_MODE && (
                 <button
                   onClick={handleSorteo}
+                  disabled={isAnimating}
                   className="px-5 py-2.5 rounded-full font-black text-sm transition-all hover:scale-105"
                   style={{
                     background: 'var(--coral)',
                     color: 'white',
+                    opacity: isAnimating ? 0.5 : 1,
+                    cursor: isAnimating ? 'not-allowed' : 'pointer',
                     border: 'none',
-                    cursor: 'pointer',
                     boxShadow: '0 4px 14px rgba(255, 107, 74, 0.4)',
                   }}
                 >

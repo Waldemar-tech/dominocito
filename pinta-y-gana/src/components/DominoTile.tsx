@@ -48,6 +48,10 @@ interface Props {
   disabled?: boolean;
   theme: DominoTheme;
   variant?: DominoVariant;
+  /** Highlight visual cuando la animación sortear pasa por esta ficha */
+  isAnimHighlight?: boolean;
+  /** Tipo de highlight de animación (x50 = naranja, x100 = rojo, done = ganador) */
+  animHighlightKind?: 'x50' | 'x100' | 'done' | null;
 }
 
 export default function DominoTile({
@@ -60,6 +64,8 @@ export default function DominoTile({
   disabled,
   theme,
   variant = 'image',
+  isAnimHighlight = false,
+  animHighlightKind = null,
 }: Props) {
   const isIvory = theme === 'ivory';
   const isImage = variant === 'image';
@@ -69,7 +75,7 @@ export default function DominoTile({
   // Si la ficha es ganadora o tiene multiplicador, NO atenuar aunque esté disabled.
   // (Cuando status === 'revealed' todas las fichas se marcan disabled para evitar re-click,
   //  pero ganadora/×50/×100 deben verse brillantes.)
-  const keepVisible = !!isWinner || !!multiplier;
+  const keepVisible = !!isWinner || !!multiplier || isAnimHighlight;
 
   if (isWinner) {
     outerGlow = '0 0 0 3px #F4C76B, 0 0 36px 8px rgba(244, 199, 107, 0.85), 0 0 0 6px rgba(244, 199, 107, 0.25)';
@@ -80,6 +86,12 @@ export default function DominoTile({
   } else if (multiplier === 50) {
     outerGlow = '0 0 0 3px #f97316, 0 0 24px 5px rgba(249, 115, 22, 0.7), 0 0 0 6px rgba(249, 115, 22, 0.18)';
     additionalClass = 'animate-fire';
+  } else if (isAnimHighlight && animHighlightKind === 'x100') {
+    outerGlow = '0 0 0 3px #ef4444, 0 0 28px 6px rgba(239, 68, 68, 0.85), 0 0 0 6px rgba(239, 68, 68, 0.25)';
+    additionalClass = 'animate-anim-highlight-x100';
+  } else if (isAnimHighlight && animHighlightKind === 'x50') {
+    outerGlow = '0 0 0 3px #f97316, 0 0 24px 5px rgba(249, 115, 22, 0.85), 0 0 0 6px rgba(249, 115, 22, 0.22)';
+    additionalClass = 'animate-anim-highlight-x50';
   } else if (selected) {
     outerGlow = '0 0 0 3px #FF6B4A, 0 0 20px 4px rgba(255, 107, 74, 0.6)';
     additionalClass = 'animate-domino-select';
@@ -114,16 +126,20 @@ export default function DominoTile({
         minWidth: `${tileSize}px`,
         height: `${tileSize * 1.7}px`,
         cursor: disabled ? 'not-allowed' : 'pointer',
-        transform: selected ? 'scale(1.08) translateY(-3px)' : undefined,
+        transform: isAnimHighlight
+          ? 'scale(1.18) translateY(-6px)'
+          : selected
+          ? 'scale(1.08) translateY(-3px)'
+          : undefined,
         overflow: 'visible',
       }}
       onMouseEnter={e => {
-        if (!disabled && !selected) {
+        if (!disabled && !selected && !isAnimHighlight) {
           e.currentTarget.style.transform = 'scale(1.06) translateY(-3px)';
         }
       }}
       onMouseLeave={e => {
-        if (!disabled && !selected) {
+        if (!disabled && !selected && !isAnimHighlight) {
           e.currentTarget.style.transform = '';
         }
       }}
