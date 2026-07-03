@@ -207,12 +207,19 @@ export default function App() {
   const [showWinBanner, setShowWinBanner] = useState(false);
   const winAmountRef = useRef(0);
 
-  // ── Animation state (x50 → x100 → reveal) ──
-  const [isAnimating, setIsAnimating] = useState(false);
-  const [animPhase, setAnimPhase] = useState<'idle' | 'x50' | 'x100' | 'done'>('idle');
+  // ── Animation state (x100 → x50 → reveal) ──
+  // selectedX100 / selectedX50 se fijan SOLO cuando cada animación termina.
+  // El highlight temporal (animHighlightId) es independiente del estado final.
+  const [animatingX100, setAnimatingX100] = useState(false);
+  const [selectedX100, setSelectedX100] = useState<number | null>(null);
+  const [animatingX50, setAnimatingX50] = useState(false);
+  const [selectedX50, setSelectedX50] = useState<number | null>(null);
   const [animHighlightId, setAnimHighlightId] = useState<number | null>(null);
   const animFrameRef = useRef<number | null>(null);
   const animTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Helper: ¿hay alguna animación corriendo? (bloquea doble-click)
+  const isAnimating = animatingX100 || animatingX50;
 
   // Persist wallet
   useEffect(() => {
@@ -340,55 +347,64 @@ export default function App() {
     // 3) Setear estado del sorteo INMEDIATAMENTE — la animación es solo visual
     setSorteo(resultado);
 
-    // 4) Iniciar secuencia de animación
-    setIsAnimating(true);
-    setAnimPhase('x50');
+    // 4) Resetear estados de selección previa (importante en re-sorteos)
+    setSelectedX100(null);
+    setSelectedX50(null);
     setAnimHighlightId(0);
 
-    const startX100 = () => {
-      setAnimPhase('x100');
-      animateHighlight(
-        multipliers.x100.id,
-        2500, // x100 un poco más corta (crescendo)
-        (id) => setAnimHighlightId(id),
-        () => {
-          // Fase final: mostrar ganador
-          setAnimPhase('done');
-          setAnimHighlightId(null);
-          setIsAnimating(false);
+    // 5) Iniciar secuencia de animación: x100 primero
+    setAnimatingX100(true);
 
-          // Historial + UI de victoria (después de la animación)
-          let msg = `Ganó: ${winner.label}`;
-          if (userWon) {
-            msg += ` · ¡GANASTE €${winAmount.toFixed(2)}! (×${payout})`;
-            setShowWinBanner(true);
-            setShowParticles(true);
-            setTimeout(() => setShowParticles(false), 3000);
-            setTimeout(() => setShowWinBanner(false), 6000);
-          } else if (sorteo.bets.length > 0) {
-            msg += ' · No fue esta vez';
-          }
-          msg += ` | ×50→${multipliers.x50.label} ×100→${multipliers.x100.label}`;
-          setHistorial(h => [{
-            id: crypto.randomUUID(),
-            msg,
-            won: !!userWon,
-            ts: new Date(),
-          }, ...h.slice(0, 9)]);
-          setMessage('');
-        },
-        animFrameRef,
-      );
+    const startX50 = () => {
+      // x100 terminado: fijar selectedX100
+      setSelectedX100(multipliers.x100.id);
+      setAnimatingX100(false);
+      setAnimHighlightId(null);
+
+      // Pequeña pausa antes de la siguiente animación
+      animTimeoutRef.current = setTimeout(() => {
+        setAnimatingX50(true);
+        animateHighlight(
+          multipliers.x50.id,
+          3000,
+          (id) => setAnimHighlightId(id),
+          () => {
+            // x50 terminado: fijar selectedX50
+            setSelectedX50(multipliers.x50.id);
+            setAnimatingX50(false);
+            setAnimHighlightId(null);
+
+            // Mostrar resultado final (winner, banner, partículas, historial)
+            let msg = `Ganó: ${winner.label}`;
+            if (userWon) {
+              msg += ` · ¡GANASTE €${winAmount.toFixed(2)}! (×${payout})`;
+              setShowWinBanner(true);
+              setShowParticles(true);
+              setTimeout(() => setShowParticles(false), 3000);
+              setTimeout(() => setShowWinBanner(false), 6000);
+            } else if (sorteo.bets.length > 0) {
+              msg += ' · No fue esta vez';
+            }
+            msg += ` | ×50→${multipliers.x50.label} ×100→${multipliers.x100.label}`;
+            setHistorial(h => [{
+              id: crypto.randomUUID(),
+              msg,
+              won: !!userWon,
+              ts: new Date(),
+            }, ...h.slice(0, 9)]);
+            setMessage('');
+          },
+          animFrameRef,
+        );
+      }, 400);
     };
 
+    // Empezar con x100 (2.5s)
     animateHighlight(
-      multipliers.x50.id,
-      3000, // x50 más larga para construir tensión
+      multipliers.x100.id,
+      2500,
       (id) => setAnimHighlightId(id),
-      () => {
-        // Pausa breve entre fases
-        animTimeoutRef.current = setTimeout(startX100, 400);
-      },
+      startX50,
       animFrameRef,
     );
   }, [sorteo, wallet, isAnimating]);
@@ -403,8 +419,10 @@ export default function App() {
       clearTimeout(animTimeoutRef.current);
       animTimeoutRef.current = null;
     }
-    setIsAnimating(false);
-    setAnimPhase('idle');
+    setAnimatingX100(false);
+    setSelectedX100(null);
+    setAnimatingX50(false);
+    setSelectedX50(null);
     setAnimHighlightId(null);
 
     setSorteo(crearSorteo(sorteo.banco));
@@ -719,8 +737,8 @@ export default function App() {
                             {animHighlightId !== null ? DOMINOES[animHighlightId].label : '—'}
                           </div>
                           <div className="text-xs font-bold" style={{ color: 'var(--walnut)', opacity: 0.55 }}>
-                            {animPhase === 'x50' && '🔥 ×50'}
-                            {animPhase === 'x100' && '💥 ×100'}
+                            {animatingX100 && '💥 Eligiendo ×100...'}
+                            {animatingX50 && '🔥 Eligiendo ×50...'}
                           </div>
                         </>
                       ) : (
@@ -973,19 +991,19 @@ export default function App() {
                 boxShadow: '0 8px 24px rgba(0, 0, 0, 0.25)',
               }}
             >
-              {sorteo.status === 'revealed' && mults && (
+              {sorteo.status === 'revealed' && selectedX100 !== null && selectedX50 !== null && mults && (
                 <div className="flex gap-2 mb-3 justify-end">
                   <div
                     className="px-2.5 py-1 rounded-full text-xs font-bold"
                     style={{ background: 'rgba(249, 115, 22, 0.2)', color: '#c2410c' }}
                   >
-                    🔥 ×50 {mults.x50.label}
+                    🔥 ×50 {DOMINOES[selectedX50].label}
                   </div>
                   <div
                     className="px-2.5 py-1 rounded-full text-xs font-bold"
                     style={{ background: 'rgba(239, 68, 68, 0.2)', color: '#b91c1c' }}
                   >
-                    💥 ×100 {mults.x100.label}
+                    💥 ×100 {DOMINOES[selectedX100].label}
                   </div>
                 </div>
               )}
@@ -999,9 +1017,15 @@ export default function App() {
                     domino={d}
                     selected={selectedId === d.id}
                     multiplier={
-                      mults?.x100.id === d.id ? 100 : mults?.x50.id === d.id ? 50 : null
+                      // La badge x100/x50 se muestra SOLO cuando su animación terminó
+                      // y fijó la selección. NO usar mults (sorteo.result.multipliers)
+                      // directamente — eso haría que aparezcan de golpe al final.
+                      selectedX100 === d.id ? 100 : selectedX50 === d.id ? 50 : null
                     }
-                    isWinner={winner?.id === d.id}
+                    isWinner={
+                      // Winner se marca solo cuando AMBAS animaciones terminaron
+                      winner?.id === d.id && selectedX100 !== null && selectedX50 !== null
+                    }
                     betAmount={betsByDomino[d.id]}
                     onClick={() => handleSelectDomino(d.id)}
                     disabled={sorteo.status !== 'open' || apuestasCerradas || isAnimating}
@@ -1009,7 +1033,7 @@ export default function App() {
                     variant={'image' as DominoVariant}
                     isAnimHighlight={isAnimating && animHighlightId === d.id}
                     animHighlightKind={
-                      animPhase === 'x50' ? 'x50' : animPhase === 'x100' ? 'x100' : null
+                      animatingX100 ? 'x100' : animatingX50 ? 'x50' : null
                     }
                   />
                 ))}
