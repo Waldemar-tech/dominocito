@@ -50,8 +50,8 @@ interface Props {
   variant?: DominoVariant;
   /** Highlight visual cuando la animación sortear pasa por esta ficha */
   isAnimHighlight?: boolean;
-  /** Tipo de highlight de animación (x50 = naranja, x100 = rojo, done = ganador) */
-  animHighlightKind?: 'x50' | 'x100' | 'done' | null;
+  /** Tipo de highlight de animación (x50 = naranja, x100 = rojo, winner = dorado) */
+  animHighlightKind?: 'x50' | 'x100' | 'winner' | null;
 }
 
 export default function DominoTile({
@@ -92,6 +92,9 @@ export default function DominoTile({
   } else if (isAnimHighlight && animHighlightKind === 'x50') {
     outerGlow = '0 0 0 3px #f97316, 0 0 24px 5px rgba(249, 115, 22, 0.85), 0 0 0 6px rgba(249, 115, 22, 0.22)';
     additionalClass = 'animate-anim-highlight-x50';
+  } else if (isAnimHighlight && animHighlightKind === 'winner') {
+    outerGlow = '0 0 0 3px #F4C76B, 0 0 32px 8px rgba(244, 199, 107, 0.9), 0 0 0 6px rgba(244, 199, 107, 0.3)';
+    additionalClass = 'animate-anim-highlight-winner';
   } else if (selected) {
     outerGlow = '0 0 0 3px #FF6B4A, 0 0 20px 4px rgba(255, 107, 74, 0.6)';
     additionalClass = 'animate-domino-select';

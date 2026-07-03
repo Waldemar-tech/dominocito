@@ -269,12 +269,14 @@ export default function App() {
   const [selectedX100, setSelectedX100] = useState<number | null>(null);
   const [animatingX50, setAnimatingX50] = useState(false);
   const [selectedX50, setSelectedX50] = useState<number | null>(null);
+  const [animatingWinner, setAnimatingWinner] = useState(false);
+  const [selectedWinner, setSelectedWinner] = useState<number | null>(null);
   const [animHighlightId, setAnimHighlightId] = useState<number | null>(null);
   const animFrameRef = useRef<number | null>(null);
   const animTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Helper: ¿hay alguna animación corriendo? (bloquea doble-click)
-  const isAnimating = animatingX100 || animatingX50;
+  const isAnimating = animatingX100 || animatingX50 || animatingWinner;
 
   // Persist wallet
   useEffect(() => {
@@ -415,6 +417,7 @@ export default function App() {
     // 5) Resetear estados de selección previa (importante en re-sorteos)
     setSelectedX100(null);
     setSelectedX50(null);
+    setSelectedWinner(null);
     setAnimHighlightId(0);
 
     // 6) Iniciar secuencia de animación: x100 primero
@@ -445,25 +448,42 @@ export default function App() {
             setAnimatingX50(false);
             setAnimHighlightId(null);
 
-            // Mostrar resultado final
-            let msg = `Ganó: ${winner.label}`;
-            if (userWon) {
-              msg += ` · ¡GANASTE €${winAmount.toFixed(2)}! (×${payout})`;
-              setShowWinBanner(true);
-              setShowParticles(true);
-              setTimeout(() => setShowParticles(false), 3000);
-              setTimeout(() => setShowWinBanner(false), 6000);
-            } else if (sorteo.bets.length > 0) {
-              msg += ' · No fue esta vez';
-            }
-            msg += ` | ×50→${multipliers.x50.label} ×100→${multipliers.x100.label}`;
-            setHistorial(h => [{
-              id: crypto.randomUUID(),
-              msg,
-              won: !!userWon,
-              ts: new Date(),
-            }, ...h.slice(0, 9)]);
-            setMessage('');
+            // Pausa antes de la animación del ganador (igual curva smooth)
+            animTimeoutRef.current = setTimeout(() => {
+              setAnimatingWinner(true);
+              animateHighlight(
+                winner.id, // Lee del RNG guardado
+                4200,
+                (id) => setAnimHighlightId(id),
+                () => {
+                  // winner terminado: fijar selectedWinner
+                  setSelectedWinner(winner.id);
+                  setAnimatingWinner(false);
+                  setAnimHighlightId(null);
+
+                  // Mostrar resultado final
+                  let msg = `Ganó: ${winner.label}`;
+                  if (userWon) {
+                    msg += ` · ¡GANASTE €${winAmount.toFixed(2)}! (×${payout})`;
+                    setShowWinBanner(true);
+                    setShowParticles(true);
+                    setTimeout(() => setShowParticles(false), 3000);
+                    setTimeout(() => setShowWinBanner(false), 6000);
+                  } else if (sorteo.bets.length > 0) {
+                    msg += ' · No fue esta vez';
+                  }
+                  msg += ` | ×50→${multipliers.x50.label} ×100→${multipliers.x100.label}`;
+                  setHistorial(h => [{
+                    id: crypto.randomUUID(),
+                    msg,
+                    won: !!userWon,
+                    ts: new Date(),
+                  }, ...h.slice(0, 9)]);
+                  setMessage('');
+                },
+                animFrameRef,
+              );
+            }, 500);
           },
           animFrameRef,
         );
@@ -494,6 +514,8 @@ export default function App() {
     setSelectedX100(null);
     setAnimatingX50(false);
     setSelectedX50(null);
+    setAnimatingWinner(false);
+    setSelectedWinner(null);
     setRngResultX100(null);
     setRngResultX50(null);
     setAnimHighlightId(null);
@@ -812,6 +834,7 @@ export default function App() {
                           <div className="text-xs font-bold" style={{ color: 'var(--walnut)', opacity: 0.55 }}>
                             {animatingX100 && '💥 Eligiendo ×100...'}
                             {animatingX50 && '🔥 Eligiendo ×50...'}
+                            {animatingWinner && '✨ Ganadora...'}
                           </div>
                         </>
                       ) : (
@@ -1096,8 +1119,8 @@ export default function App() {
                       selectedX100 === d.id ? 100 : selectedX50 === d.id ? 50 : null
                     }
                     isWinner={
-                      // Winner se marca solo cuando AMBAS animaciones terminaron
-                      winner?.id === d.id && selectedX100 !== null && selectedX50 !== null
+                      // Winner se marca solo cuando la animación del winner terminó
+                      winner?.id === d.id && selectedWinner !== null
                     }
                     betAmount={betsByDomino[d.id]}
                     onClick={() => handleSelectDomino(d.id)}
@@ -1106,7 +1129,7 @@ export default function App() {
                     variant={'image' as DominoVariant}
                     isAnimHighlight={isAnimating && animHighlightId === d.id}
                     animHighlightKind={
-                      animatingX100 ? 'x100' : animatingX50 ? 'x50' : null
+                      animatingX100 ? 'x100' : animatingX50 ? 'x50' : animatingWinner ? 'winner' : null
                     }
                   />
                 ))}
