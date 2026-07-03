@@ -218,12 +218,13 @@ function animateHighlight(
     onTick(idx);
     currentStep++;
 
-    // Delay progresivo: lineal entre delayMin y delayMax.
-    // El último step (idx = targetIndex - 1) lleva el delay más largo
-    // para dar suspenso antes de aterrizar en el target.
+    // Delay progresivo: curva ease-out cuadrática entre delayMin y delayMax.
+    // Más frames cerca del target = aterrizaje más suave (sin golpe).
+    //   progress_eased = 1 - (1 - progress)^2
     const denom = Math.max(1, totalSteps - 1);
     const progress = currentStep / denom;
-    const delay = delayMin + (delayMax - delayMin) * progress;
+    const eased = 1 - (1 - progress) * (1 - progress);
+    const delay = delayMin + (delayMax - delayMin) * eased;
     frameRef.current = window.setTimeout(tick, delay);
   };
 
