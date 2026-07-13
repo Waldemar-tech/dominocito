@@ -1,0 +1,5 @@
+[allowlist]
+  description = "Global allowlist"
+  paths = [
+    '''SECURITY_AUDIT\.md''',
+  ]
