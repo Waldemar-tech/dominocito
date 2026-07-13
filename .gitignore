@@ -49,3 +49,9 @@ coverage/
 
 # ─── ECDSA private keys (regenerar con scripts/generate-keys.ts) ─
 backend/keys/ec-private.pem
+
+# Cubrir TODOS los .env y backups (2026-07-13 security fix)
+.env*
+!.env.example
+backend/keys/*.pem
+!backend/keys/ec-public.pem
