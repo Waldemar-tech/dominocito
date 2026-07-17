@@ -1,57 +1,71 @@
-# Dominócito — .gitignore
 
+!.env.example
+!backend/keys/ec-public.pem
+# Cubrir TODOS los .env y backups (2026-07-13 security fix)
+# Dominócito — .gitignore
+# ─── Backups / temp ──────────────────────────────────────
+# ─── Build outputs ───────────────────────────────────────
 # ─── Dependencies ────────────────────────────────────────
-node_modules/
+# ─── Deploy package (se regenera con el build) ──────────
+# ─── ECDSA private keys (regenerar con scripts/generate-keys.ts) ─
+# ─── Environment files (NUNCA COMMITEAR SECRETS) ────────
+# ─── IDE ─────────────────────────────────────────────────
+# ─── Logs ────────────────────────────────────────────────
+# ─── Misc ────────────────────────────────────────────────
+*.backup
+*.err
+*.local_backup
+*.log
+*.out
+*.pid
+*.seed
+*.sock
+*.tgz
+.DS_Store
+.cache/
+.env
+.env*
+.env.*.local
+.env.local
+.env.production
+.env.remote_backup
+.idea/
 .pnp
 .pnp.js
-
-# ─── Build outputs ───────────────────────────────────────
-dist/
+.vscode/
+backend.log
+backend/keys/*.pem
+backend/keys/ec-private.pem
+bot_*.cjs
+bot_*.mjs
+bots_*.cjs
 build/
-*.tgz
-
-# ─── Deploy package (se regenera con el build) ──────────
+coverage/
+debug_*.cjs
+debug_*.mjs
+deploy-package/
+deploy-package/*.tar.gz
 deploy-package/backend-dist/
 deploy-package/frontend-dist/
 deploy-package/production/.env.production
 deploy-package/production/SECRETS_BACKUP.txt
-deploy-package/*.tar.gz
-
-# ─── Logs ────────────────────────────────────────────────
-*.log
-backend.log
+devil33_*.cjs
+dist/
+e2e/
 frontend.log
+inbox/
+logs/
+node_modules/
+package-lock.json
+package.json
+pinta-y-gana/
+playwright.config.ts
 postgres_local.log
+public/devildrey33.backup_*/
+run_bots*.mjs
+setup_game.mjs
+src/domino.backup_fase2/
+start_*.cjs
+test-results/
 watch.log
-
-# ─── Environment files (NUNCA COMMITEAR SECRETS) ────────
-.env
-.env.local
-.env.*.local
-.env.remote_backup
-.env.production
-
-# ─── Backups / temp ──────────────────────────────────────
-*.backup
-*.local_backup
-*.pid
-*.sock
-*.seed
-
-# ─── IDE ─────────────────────────────────────────────────
-.vscode/
-.idea/
-.DS_Store
-
-# ─── Misc ────────────────────────────────────────────────
-.cache/
-coverage/
-
-# ─── ECDSA private keys (regenerar con scripts/generate-keys.ts) ─
-backend/keys/ec-private.pem
-
-# Cubrir TODOS los .env y backups (2026-07-13 security fix)
-.env*
-!.env.example
-backend/keys/*.pem
-!backend/keys/ec-public.pem
+watch.sh

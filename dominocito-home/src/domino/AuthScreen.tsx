@@ -42,8 +42,10 @@ export default function AuthScreen() {
       localStorage.setItem('dc_username', data.user.username)
       localStorage.setItem('dc_user_id', String(data.user.id))
 
-      // Volver al home
-      navigate('/')
+      // Volver a la ruta que intentaba acceder (si hay returnTo), sino al home
+      const params = new URLSearchParams(window.location.search)
+      const returnTo = params.get('returnTo') || '/'
+      navigate(returnTo)
     } catch (err) {
       setError('Error de red')
     } finally {

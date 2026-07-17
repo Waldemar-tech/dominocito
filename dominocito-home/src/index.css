@@ -1,22 +1,77 @@
-@import url('https://fonts.googleapis.com/css2?family=Limelight&family=Cinzel:wght@700;900&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Fraunces:wght@600;700;900&family=Inter:wght@400;500;600;700&display=swap');
 @import "tailwindcss";
 
+/* ── Variables de marca: Dominócito ADN ─────────────────────────── */
+@theme {
+  /* Base */
+  --color-guayacan:        #1B120D;
+  --color-guayoyyo:        #3A2418;
+  --color-fondo:           #2B1E17;
+  --color-fondo-claro:     #3D2A1E;
+  --color-fondo-oscuro:    #1E1410;
+  --color-divisor:         #5A4A40;
+
+  /* Texto */
+  --color-marfil:          #FAE6C8;
+  --color-crema:           #FBF6F0;
+  --color-blanco-calido:   #E5DDD5;
+  --color-gris-calido:     #C9BFB8;
+
+  /* Acentos */
+  --color-cayena:          #FF684A;
+  --color-cayena-1:        #FF7B54;
+  --color-cayena-2:        #F0623A;
+
+  /* Cards por juego */
+  --color-pinata:          #F5B800;
+  --color-pinata-dark:     #E8A800;
+  --color-damero:          #C97B3C;
+  --color-damero-dark:     #B86B35;
+  --color-loteria:         #0F2847;
+  --color-loteria-dark:    #061427;
+
+  /* Tipografía */
+  --font-serif: 'Fraunces', "Recoleta", Georgia, serif;
+  --font-sans:  'Inter', system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
+}
+
+/* ── Reset + body ─────────────────────────────────────────────── */
 body {
   margin: 0;
-  font-family: system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
-  background: linear-gradient(135deg, #0a3d2e 0%, #1a5c44 50%, #0d4a35 100%);
-  color: white;
+  font-family: var(--font-sans);
+  color: var(--color-crema);
+  background: var(--color-fondo);
   min-height: 100vh;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }
 
 * {
   box-sizing: border-box;
 }
 
-.casino-title {
-  font-family: 'Limelight', 'Cinzel', Georgia, serif;
+/* ── Utilidades tipográficas ─────────────────────────────────── */
+.font-serif-dc {
+  font-family: var(--font-serif);
 }
 
+/* Compatibilidad con clases Tailwind existentes */
+.casino-title {
+  font-family: var(--font-serif);
+}
 .cinzel {
-  font-family: 'Cinzel', Georgia, serif;
+  font-family: var(--font-serif);
+}
+
+/* Placeholder mientras llegan los assets */
+.asset-placeholder {
+  background: linear-gradient(135deg, var(--color-guayoyyo) 0%, var(--color-guayacan) 100%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--color-marfil);
+  font-family: var(--font-sans);
+  font-size: 0.875rem;
+  text-align: center;
+  padding: 1rem;
 }

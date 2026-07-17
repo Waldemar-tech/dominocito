@@ -1,0 +1,10 @@
+<!DOCTYPE html>
+<html>
+<script>
+const p = new URLSearchParams(window.location.search);
+localStorage.setItem('dc_access_token', p.get('token'));
+localStorage.setItem('dc_user_id', p.get('uid'));
+localStorage.setItem('dc_username', p.get('username'));
+window.location = p.get('redirect') || '/';
+</script>
+</html>

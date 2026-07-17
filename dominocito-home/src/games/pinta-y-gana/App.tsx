@@ -1,4 +1,5 @@
 import { useState, useCallback, useEffect, useRef } from 'react';
+import { useNavigate, Link } from 'react-router-dom';
 import { DOMINOES } from './engine/dominoes';
 import { crearSorteo, apostar as apostarSorteo, cerrarYRevelar } from './engine/sorteo';
 import type { SorteoState } from './engine/sorteo';
@@ -85,8 +86,17 @@ function FloatingNav({
         />
       </div>
 
-      {/* Links centrales */}
+      {/* Links centrales — Home + Lobby + Juegos + Ranking */}
       <div className="hidden md:flex items-center gap-7">
+        <Link
+          to="/"
+          className="text-sm font-semibold transition-colors"
+          style={{ color: 'var(--white)', textDecoration: 'none' }}
+          onMouseEnter={e => (e.currentTarget.style.color = 'var(--coral)')}
+          onMouseLeave={e => (e.currentTarget.style.color = 'var(--white)')}
+        >
+          Home
+        </Link>
         {['Lobby', 'Juegos', 'Ranking'].map(label => (
           <a
             key={label}
@@ -237,6 +247,7 @@ function animateHighlight(
 
 // ═════════════════════════════════════════════════════════════════
 export default function App() {
+  const navigate = useNavigate();
   // ── Auth state ──
   const [currentUser, setCurrentUser] = useState<User | null>(() => getCurrentUser());
   const [showAuth, setShowAuth] = useState(false);
@@ -629,13 +640,19 @@ export default function App() {
             {/* Logo + menú */}
             <div className="flex items-center gap-6">
               <div className="flex items-center gap-2">
-                <span style={{ fontSize: '22px' }}>🎲</span>
-                <span
-                  className="font-black tracking-wide"
-                  style={{ color: 'var(--cream)', fontSize: '15px', letterSpacing: '0.05em' }}
+                <button
+                  onClick={() => navigate('/')}
+                  className="flex items-center gap-2 transition-opacity hover:opacity-80"
+                  style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}
                 >
-                  DOMINÓCITO
-                </span>
+                  <span style={{ fontSize: '22px' }}>🎲</span>
+                  <span
+                    className="font-black tracking-wide"
+                    style={{ color: 'var(--cream)', fontSize: '15px', letterSpacing: '0.05em' }}
+                  >
+                    Home
+                  </span>
+                </button>
               </div>
               <nav className="hidden md:flex items-center gap-5">
                 <button

@@ -60,9 +60,15 @@ export default function DominoLobby() {
   }, [])
 
   const getToken = useCallback((): string | null => {
+    return localStorage.getItem('dc_access_token')
+  }, [])
+
+  // Para acciones que requieren login (crear/unirse a sala): si no hay token,
+  // redirigir a /login con returnTo para volver después.
+  const requireAuth = useCallback((returnTo: string): string | null => {
     const token = localStorage.getItem('dc_access_token')
     if (!token) {
-      navigate('/login')
+      navigate(`/login?returnTo=${encodeURIComponent(returnTo)}`)
       return null
     }
     return token
@@ -70,30 +76,34 @@ export default function DominoLobby() {
 
   const loadRooms = useCallback(async (silent = true) => {
     const token = getToken()
-    if (!token) return
     if (!silent) setIsRefreshing(true)
     try {
-      const [pub, mine] = await Promise.all([
-        fetch(`${API_URL}/domino/rooms/public`, {
-          headers: { Authorization: `Bearer ${token}` },
-        }).then(r => r.ok ? r.json() : Promise.reject(new Error(`public ${r.status}`))),
-        fetch(`${API_URL}/domino/rooms/mine`, {
-          headers: { Authorization: `Bearer ${token}` },
-        }).then(r => r.ok ? r.json() : Promise.reject(new Error(`mine ${r.status}`))),
-      ])
+      // Salas públicas — sin auth requerida
+      const pubRes = await fetch(`${API_URL}/domino/rooms/public`)
+      const pub = pubRes.ok ? await pubRes.json() : { rooms: [] }
       setPublicRooms(pub.rooms || [])
-      setMyRooms(mine.rooms || [])
+
+      // Mis salas — solo si hay token
+      if (token) {
+        const mineRes = await fetch(`${API_URL}/domino/rooms/mine`, {
+          headers: { Authorization: `Bearer ${token}` },
+        })
+        if (mineRes.ok) {
+          const mine = await mineRes.json()
+          setMyRooms(mine.rooms || [])
+        } else if (mineRes.status === 401) {
+          localStorage.removeItem('dc_access_token')
+          setMyRooms([])
+        }
+      } else {
+        setMyRooms([])
+      }
     } catch (err: any) {
       console.error('Error loading rooms:', err)
-      // Si 401, forzar re-login
-      if (err.message?.includes('401')) {
-        localStorage.removeItem('dc_access_token')
-        navigate('/login')
-      }
     } finally {
       setIsRefreshing(false)
     }
-  }, [getToken, navigate])
+  }, [getToken])
 
   useEffect(() => {
     setUsername(localStorage.getItem('dc_username'))
@@ -111,7 +121,7 @@ export default function DominoLobby() {
   async function createRoom(isPrivate: boolean) {
     setLoading(true)
     setError(null)
-    const token = getToken()
+    const token = requireAuth('/domino')
     if (!token) { setLoading(false); return }
 
     try {
@@ -160,7 +170,7 @@ export default function DominoLobby() {
 
     setLoading(true)
     setError(null)
-    const token = getToken()
+    const token = requireAuth('/domino')
     if (!token) { setLoading(false); return }
 
     try {
@@ -250,23 +260,95 @@ export default function DominoLobby() {
   )
 
   return (
-    <div className="min-h-screen p-6">
-      <div className="max-w-4xl mx-auto">
-        <Link to="/" className="inline-block mb-4 text-white/60 hover:text-white text-sm">
-          ← Volver al inicio
-        </Link>
-
-        <div className="flex items-center justify-between mb-6">
-          <div>
-            <h1 className="text-4xl font-bold text-yellow-300">Dominó Clásico</h1>
-            <p className="text-white/60 text-sm">4 jugadores · 28 fichas · 100 puntos</p>
-          </div>
-          {username && (
-            <div className="text-sm text-white/70">
-              Jugando como <span className="font-bold text-yellow-300">{username}</span>
+    <div
+      className="min-h-screen relative"
+      style={{
+        backgroundImage: "url('/assets/domino-lobby-bg.jpg')",
+        backgroundSize: 'cover',
+        backgroundPosition: 'center',
+        backgroundRepeat: 'no-repeat',
+      }}
+    >
+      {/* Navbar flotante */}
+      <header className="relative z-30 pt-4 px-6">
+        <div className="max-w-6xl mx-auto">
+          <div
+            className="flex items-center justify-between gap-4 px-5 py-3 rounded-full"
+            style={{
+              background: 'rgba(20, 10, 5, 0.85)',
+              border: '1px solid rgba(255, 233, 214, 0.08)',
+              backdropFilter: 'blur(10px)',
+            }}
+          >
+            {/* Logo + menú */}
+            <div className="flex items-center gap-6">
+              <Link to="/" className="flex items-center gap-2 transition-opacity hover:opacity-80" style={{ textDecoration: 'none' }}>
+                <img src="/assets/logos/domino-clasico.png" alt="Dominó Clásico" style={{ height: '28px', width: 'auto', maxWidth: '120px' }} />
+              </Link>
+              <nav className="hidden md:flex items-center gap-5">
+                <span className="text-sm font-bold transition-opacity hover:opacity-100" style={{ color: 'var(--coral)', opacity: 0.9 }}>Lobby</span>
+                <span className="text-sm font-bold transition-opacity hover:opacity-100 cursor-pointer" style={{ color: 'var(--cream)', opacity: 0.85 }} onClick={() => document.getElementById('rooms-public')?.scrollIntoView({ behavior: 'smooth' })}>Mesas</span>
+                <span className="text-sm font-bold transition-opacity hover:opacity-100" style={{ color: 'var(--cream)', opacity: 0.85 }}>Ranking</span>
+              </nav>
             </div>
-          )}
+
+            {/* Right CTA */}
+            <div className="flex items-center gap-3">
+              {username ? (
+                <>
+                  <span className="hidden sm:inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-bold" style={{ background: 'rgba(255, 233, 214, 0.08)', color: 'var(--cream)' }}>
+                    🪙 €200
+                  </span>
+                  <span className="hidden sm:inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-bold" style={{ background: 'var(--coral)', color: '#fff' }}>
+                    👤 {username} ▾
+                  </span>
+                </>
+              ) : (
+                <>
+                  <button onClick={() => requireAuth('/domino')} className="hidden sm:inline px-4 py-2 text-sm transition" style={{ color: 'var(--cream)', opacity: 0.85, background: 'none', border: 'none', cursor: 'pointer' }}>Iniciar sesión</button>
+                  <button onClick={() => requireAuth('/domino')} className="px-5 py-2 text-sm font-bold rounded-full transition" style={{ background: 'var(--coral)', color: '#fff', border: 'none', cursor: 'pointer' }}>Regístrate</button>
+                </>
+              )}
+            </div>
+          </div>
         </div>
+      </header>
+
+      {/* Hero */}
+      <section className="relative z-10 flex flex-col items-center justify-center text-center pt-16 pb-20 px-6">
+        <h1
+          className="font-black tracking-tight"
+          style={{
+            fontFamily: 'var(--font-display)',
+            fontSize: 'clamp(60px, 10vw, 130px)',
+            color: 'var(--cream)',
+            textShadow: '4px 4px 0 #1a0a05, -2px -2px 0 #1a0a05, 8px 8px 32px rgba(0,0,0,0.7)',
+            letterSpacing: '-0.02em',
+            lineHeight: 0.95,
+          }}
+        >
+          DOMINÓ<br />CLÁSICO
+        </h1>
+        <p className="mt-4 text-base" style={{ color: 'var(--cream)', opacity: 0.85 }}>
+          4 jugadores · 28 fichas · 100 puntos
+        </p>
+        <button
+          onClick={() => createRoom(false)}
+          disabled={loading}
+          className="mt-8 px-10 py-4 text-lg font-bold rounded-full transition transform hover:scale-105"
+          style={{
+            background: 'var(--coral)',
+            color: '#fff',
+            border: 'none',
+            cursor: 'pointer',
+            boxShadow: '0 8px 32px rgba(255, 107, 74, 0.5)',
+          }}
+        >
+          {loading ? 'Creando…' : '🎲 Jugar Ahora'}
+        </button>
+      </section>
+
+      <div className="max-w-4xl mx-auto px-6 pb-12">
 
         {/* Tus mesas */}
         <div className="bg-white/5 border border-yellow-500/30 rounded-2xl p-6 mb-6">

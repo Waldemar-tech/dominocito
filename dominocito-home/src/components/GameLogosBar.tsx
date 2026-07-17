@@ -8,9 +8,9 @@ interface GameLink {
 }
 
 const GAMES: GameLink[] = [
-  { to: '/domino',           label: 'Dominó',     logo: '/assets/logos/domino.svg',     active: 'prefix' },
-  { to: '/pinta-y-gana',     label: 'Pinta y Gana', logo: '/assets/logos/pinta-y-gana.svg', active: 'exact' },
-  { to: '/loteria',          label: 'Lotería',    logo: '/assets/logos/loteria.svg',    active: 'exact' },
+  { to: '/domino',           label: 'Dominó',     logo: '/assets/logos/domino-clasico.png',  active: 'prefix' },
+  { to: '/pinta-y-gana',     label: 'Pinta y Gana', logo: '/assets/logos/pinta-y-gana.png', active: 'exact' },
+  { to: '/loteria',          label: 'Lotería',    logo: '/assets/logos/loteria.png',    active: 'exact' },
 ];
 
 interface Props {
@@ -59,12 +59,9 @@ export default function GameLogosBar({ hideHome = false }: Props) {
             <img
               src={g.logo}
               alt={g.label}
-              className="w-8 h-8 rounded-md"
-              loading="lazy"
+              className="h-9 w-auto max-w-[130px] object-contain"
+
             />
-            <span className="hidden sm:inline text-sm font-semibold text-white/90">
-              {g.label}
-            </span>
           </Link>
         );
       })}
