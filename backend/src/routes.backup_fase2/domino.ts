@@ -44,7 +44,7 @@ router.post('/rooms', requireAuth, async (req: Request, res: Response) => {
     return res.status(401).json({ error: 'No autenticado' });
   }
 
-  const { isPrivate = true, maxPlayers = 4, gameMode = 'individual', teamMode = null, targetScore = null } = req.body ?? {};
+  const { isPrivate = true, maxPlayers = 4, gameMode = 'individual', teamMode = null } = req.body ?? {};
 
   if (!isValidMaxPlayers(maxPlayers)) {
     return res.status(400).json({ error: 'maxPlayers debe ser 2 o 4' });
@@ -68,20 +68,6 @@ router.post('/rooms', requireAuth, async (req: Request, res: Response) => {
       return res.status(400).json({ error: "teamMode debe ser 'manual', 'choose' o 'random'" });
     }
     finalTeamMode = teamMode;
-  }
-
-  // PARTIDO A PUNTOS: objetivo opcional. Solo válido en modo parejas.
-  // null = una sola mano (comportamiento clásico).
-  let finalTarget: number | null = null;
-  if (targetScore !== null && targetScore !== undefined) {
-    const t = Number(targetScore);
-    if (!Number.isInteger(t) || t < 1 || t > 10000) {
-      return res.status(400).json({ error: 'targetScore debe ser un entero entre 1 y 10000' });
-    }
-    if (gameMode !== 'teams') {
-      return res.status(400).json({ error: 'El partido a puntos requiere modo parejas' });
-    }
-    finalTarget = t;
   }
 
   const client = await pool.connect();
@@ -108,10 +94,10 @@ router.post('/rooms', requireAuth, async (req: Request, res: Response) => {
 
     // Crear sala
     const roomResult = await client.query(
-      `INSERT INTO dc_domino_rooms (code, host_user_id, is_private, max_players, status, game_mode, team_mode, target_score)
-       VALUES ($1, $2, $3, $4, 'waiting', $5, $6, $7)
-       RETURNING id, code, host_user_id, is_private, max_players, status, game_mode, team_mode, target_score, created_at`,
-      [code, userId, isPriv, maxPlayers, gameMode, finalTeamMode, finalTarget]
+      `INSERT INTO dc_domino_rooms (code, host_user_id, is_private, max_players, status, game_mode, team_mode)
+       VALUES ($1, $2, $3, $4, 'waiting', $5, $6)
+       RETURNING id, code, host_user_id, is_private, max_players, status, game_mode, team_mode, created_at`,
+      [code, userId, isPriv, maxPlayers, gameMode, finalTeamMode]
     );
     const room = roomResult.rows[0];
 
@@ -211,13 +197,11 @@ router.get('/rooms/:code', requireAuth, async (req: Request, res: Response) => {
       `SELECT
          r.id, r.code, r.host_user_id, r.is_private, r.max_players, r.status,
          r.created_at, r.started_at, r.finished_at,
-         r.game_mode, r.team_mode, r.target_score,
          host.username as host_username,
          json_agg(
            json_build_object(
              'user_id', p.user_id,
              'position', p.position,
-             'team', p.team,
              'is_connected', p.is_connected,
              'username', u.username,
              'display_name', u.username
