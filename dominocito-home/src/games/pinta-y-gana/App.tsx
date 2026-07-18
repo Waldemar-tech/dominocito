@@ -322,6 +322,17 @@ export default function App() {
     };
   }, []);
 
+  // Listener del navbar global: abre modal de auth cuando el usuario hace click en Iniciar/Registrarse
+  useEffect(() => {
+    const onAuthEvent = (e: Event) => {
+      const detail = (e as CustomEvent<{ mode: 'login' | 'register' }>).detail;
+      setAuthMode(detail?.mode ?? 'login');
+      setShowAuth(true);
+    };
+    window.addEventListener('dc:open-auth', onAuthEvent);
+    return () => window.removeEventListener('dc:open-auth', onAuthEvent);
+  }, []);
+
   // Auth callbacks
   const handleAuthenticated = (user: User) => {
     setCurrentUser(user);
@@ -547,12 +558,7 @@ export default function App() {
         <HomePage
           onRegister={() => { setAuthMode('register'); setShowAuth(true); }}
         />
-        <FloatingNav
-          currentUser={null}
-          onLogin={() => { setAuthMode('login'); setShowAuth(true); }}
-          onRegister={() => { setAuthMode('register'); setShowAuth(true); }}
-          onLogout={handleLogout}
-        />
+        {/* FloatingNav removido: usamos GameLogosBar global */}
         {showAuth && (
           <AuthScreen
             onAuthenticated={handleAuthenticated}

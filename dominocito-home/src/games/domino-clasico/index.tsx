@@ -1,6 +1,19 @@
 import { useState, useEffect } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { Link, useNavigate, useLocation } from 'react-router-dom'
 import { assetUrl } from '../../utils/baseUrl'
+
+interface GameLink {
+  to: string;
+  label: string;
+  logo: string;
+  active: 'exact' | 'prefix';
+}
+
+const GAMES: GameLink[] = [
+  { to: '/domino',           label: 'Dominó',       logo: '/assets/logos/domino-clasico.png', active: 'prefix' },
+  { to: '/pinta-y-gana',     label: 'Pinta y Gana', logo: '/assets/logos/pinta-y-gana.png',  active: 'exact' },
+  { to: '/loteria',          label: 'Lotería',      logo: '/assets/logos/loteria.png',       active: 'exact' },
+];
 import heroBg from '../../assets/domino-clasico-hero.jpg'
 import titleImg from '../../assets/title-domino-clasico.png'
 import mesaPreview from '../../assets/domino-mesa-preview.jpg'
@@ -20,7 +33,11 @@ const F = {
 
 export default function DominoClasicoHome() {
   const navigate = useNavigate()
+  const { pathname } = useLocation()
   const [user, setUser] = useState<{ username: string } | null>(null)
+
+  const isActive = (g: GameLink) =>
+    g.active === 'exact' ? pathname === g.to : pathname.startsWith(g.to)
 
   useEffect(() => {
     const token = localStorage.getItem('dc_access_token')
@@ -39,81 +56,7 @@ export default function DominoClasicoHome() {
   return (
     <div className="min-h-screen flex flex-col" style={{ background: C.nocturno, color: C.marfil, fontFamily: F.body }}>
 
-      {/* ── NAVBAR (mismo formato que Pinta y Gana) ── */}
-      <nav
-        className="fixed top-4 left-1/2 -translate-x-1/2 z-50 flex items-center justify-between"
-        style={{
-          width: 'min(1100px, 92vw)',
-          height: '64px',
-          padding: '0 18px 0 24px',
-          background: 'rgba(27,18,13,0.85)',
-          backdropFilter: 'blur(14px)',
-          borderRadius: '999px',
-          border: `1px solid rgba(244,230,200,0.10)`,
-          boxShadow: '0 8px 32px rgba(0,0,0,0.3)',
-        }}
-      >
-        {/* Logo + Home */}
-        <div className="flex items-center gap-3">
-          <img
-            src={assetUrl('/assets/pinta-y-gana/Home%20-%20Domin%C3%B3cito-03.svg')}
-            alt="Dominócito"
-            style={{ height: '44px', width: 'auto' }}
-          />
-        </div>
-
-        {/* Links centrales */}
-        <div className="hidden md:flex items-center gap-7">
-          <a
-            href="https://dominocito.com"
-            className="text-sm font-semibold transition-colors"
-            style={{ color: C.marfil }}
-            onMouseEnter={e => (e.currentTarget.style.color = C.cayena)}
-            onMouseLeave={e => (e.currentTarget.style.color = C.marfil)}
-          >
-            Home
-          </a>
-          {['Lobby', 'Juegos', 'Ranking'].map(label => (
-            <a
-              key={label}
-              href={`#${label.toLowerCase()}`}
-              onClick={e => e.preventDefault()}
-              className="text-sm font-semibold transition-colors"
-              style={{ color: C.marfil }}
-              onMouseEnter={e => (e.currentTarget.style.color = C.cayena)}
-              onMouseLeave={e => (e.currentTarget.style.color = C.marfil)}
-            >
-              {label}
-            </a>
-          ))}
-        </div>
-
-        {/* CTA Auth */}
-        <div className="flex items-center gap-2">
-          {user ? (
-            <button onClick={handleLogout} className="btn-coral" style={{ padding: '9px 20px', fontSize: '13px' }}>
-              Salir
-            </button>
-          ) : (
-            <>
-              <button
-                onClick={() => navigate('/login')}
-                className="btn-coral"
-                style={{ padding: '9px 20px', fontSize: '13px' }}
-              >
-                Iniciar Sesión
-              </button>
-              <button
-                onClick={() => navigate('/login')}
-                className="btn-coral"
-                style={{ padding: '9px 20px', fontSize: '13px' }}
-              >
-                Regístrate
-              </button>
-            </>
-          )}
-        </div>
-      </nav>
+      {/* Navbar movido a GameLogosBar global (ver App.tsx) */}
 
       {/* ── HERO (full bleed con imagen de fondo) ── */}
       <section className="relative w-full overflow-hidden" style={{ minHeight: '100vh' }}>
