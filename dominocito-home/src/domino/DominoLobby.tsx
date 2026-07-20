@@ -575,7 +575,12 @@ export default function DominoLobby() {
               <p className="text-sm">No estás en ninguna mesa activa.</p>
             </div>
           ) : (
-            <div className="grid gap-2">{myRooms.map(r => renderRoom(r, true))}</div>
+            <>
+              <div className="grid gap-2">{myRooms.slice((myPage-1)*PAGE_SIZE, myPage*PAGE_SIZE).map(r => renderRoom(r, true))}</div>
+              {myRooms.length > PAGE_SIZE && (
+                <Pagination current={myPage} total={Math.ceil(myRooms.length/PAGE_SIZE)} onChange={setMyPage} />
+              )}
+            </>
           )}
         </div>
 
@@ -647,7 +652,7 @@ export default function DominoLobby() {
             </div>
           ) : (
             <div className="grid gap-2">
-              {publicRooms.map(room => (
+              {publicRooms.slice((publicPage-1)*PAGE_SIZE, publicPage*PAGE_SIZE).map(room => (
                 <div
                   key={room.id}
                   className="bg-white/5 hover:bg-white/10 border border-white/10 hover:border-yellow-400/50 rounded-lg px-4 py-3 flex justify-between items-center transition cursor-pointer"
@@ -662,6 +667,9 @@ export default function DominoLobby() {
                   <div className="text-sm text-yellow-400 font-bold">Unirse →</div>
                 </div>
               ))}
+              {publicRooms.length > PAGE_SIZE && (
+                <Pagination current={publicPage} total={Math.ceil(publicRooms.length/PAGE_SIZE)} onChange={setPublicPage} />
+              )}
             </div>
           )}
         </div>
@@ -715,6 +723,40 @@ export default function DominoLobby() {
           </div>
         ))}
       </div>
+    </div>
+  )
+}
+function Pagination({ current, total, onChange }: { current: number; total: number; onChange: (p: number) => void }) {
+  if (total <= 1) return null
+  return (
+    <div className="flex items-center justify-center gap-2 mt-4">
+      <button
+        onClick={() => onChange(Math.max(1, current - 1))}
+        disabled={current === 1}
+        className="px-3 py-1 text-sm rounded bg-white/10 hover:bg-white/20 disabled:opacity-30 disabled:cursor-not-allowed transition"
+      >
+        ← Anterior
+      </button>
+      {Array.from({ length: total }, (_, i) => i + 1).map(p => (
+        <button
+          key={p}
+          onClick={() => onChange(p)}
+          className={`px-3 py-1 text-sm rounded transition ${
+            p === current
+              ? 'bg-yellow-400 text-emerald-950 font-bold'
+              : 'bg-white/10 hover:bg-white/20 text-white'
+          }`}
+        >
+          {p}
+        </button>
+      ))}
+      <button
+        onClick={() => onChange(Math.min(total, current + 1))}
+        disabled={current === total}
+        className="px-3 py-1 text-sm rounded bg-white/10 hover:bg-white/20 disabled:opacity-30 disabled:cursor-not-allowed transition"
+      >
+        Siguiente →
+      </button>
     </div>
   )
 }
