@@ -56,7 +56,8 @@ export default function GameLogosBar() {
     g.active === 'exact' ? pathname === g.to : pathname.startsWith(g.to);
 
   const openAuth = (mode: 'login' | 'register') => {
-    window.dispatchEvent(new CustomEvent('dc:open-auth', { detail: { mode } }));
+    const returnTo = encodeURIComponent(pathname + window.location.search);
+    navigate(`/login?mode=${mode}&returnTo=${returnTo}`);
   };
 
   const logout = () => {
