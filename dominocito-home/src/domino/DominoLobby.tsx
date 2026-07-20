@@ -549,28 +549,7 @@ export default function DominoLobby() {
       className="min-h-screen relative"
     >
 
-      {/* Hero */}
-      <section className="relative z-10 flex flex-col items-center justify-center text-center pt-16 pb-20 px-6">
-        <p className="mt-4 text-base" style={{ color: 'var(--cream)', opacity: 0.85 }}>
-          4 jugadores · 28 fichas · 100 puntos
-        </p>
-        <button
-          onClick={() => openCreateModal(false)}
-          disabled={loading}
-          className="mt-8 px-10 py-4 text-lg font-bold rounded-full transition transform hover:scale-105"
-          style={{
-            background: 'var(--coral)',
-            color: '#fff',
-            border: 'none',
-            cursor: 'pointer',
-            boxShadow: '0 8px 32px rgba(255, 107, 74, 0.5)',
-          }}
-        >
-          {loading ? 'Creando…' : '🎲 Jugar Ahora'}
-        </button>
-      </section>
-
-      <div className="max-w-4xl mx-auto px-6 pb-12">
+      <div className="max-w-4xl mx-auto px-6 pt-12 pb-12">
 
         {/* Tus mesas */}
         <div className="bg-white/5 border border-yellow-500/30 rounded-2xl p-6 mb-6">
