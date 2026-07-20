@@ -191,6 +191,68 @@ Domino.SyncState = function(gameState, viewerUserId) {
  if (boardLen > yaColocadas) {
  // Hay jugadas nuevas que reproducir
  var sorted = state.board.slice().sort(function(a, b) { return a.order - b.order; });
+
+ // PRE-MARCADO del viewer: sus fichas jugadas (en board) necesitan estar
+ // en slots 0-6 con Colocada=true para que el fallback de _reproducirJugada
+ // las encuentre. Los slots 0-6 tienen la mano actual (slots 0..hand.length-1)
+ // y slots libres con valor dummy (slots hand.length..6).
+ // Asignamos cada ficha jugada del viewer a un slot libre y lo marcamos.
+ var _vmFreeCursor = myPlayer ? myPlayer.hand.length : 0; // primer slot libre
+ for (var vmI = yaColocadas; vmI < sorted.length; vmI++) {
+ var vmEntry = sorted[vmI];
+ var vmIsViewer = false;
+ for (var vmK=0; vmK<state.players.length; vmK++) {
+ if (Number(state.players[vmK].userId)===Number(vmEntry.userId) &&
+ state.players[vmK].position===myServerPos) { vmIsViewer=true; break; }
+ }
+ if (!vmIsViewer) continue;
+ if (_vmFreeCursor >= 7) continue; // no quedan slots libres
+ var vmF = partida.Ficha[_vmFreeCursor];
+ if (!vmF) continue;
+ if (typeof setFichaValores === 'function') setFichaValores(vmF, vmEntry.tile);
+ else vmF.Valores = [vmEntry.tile[0], vmEntry.tile[1]];
+ vmF.Colocada = true;
+ _vmFreeCursor++;
+ }
+
+ // PRE-ASIGNADO (reintegrado de Domino_Socket v1):
+ // Forzar el valor correcto en slots de rivales ANTES de reproducir.
+ // Usamos un cursor por grupo para no sobrescribir el mismo slot:
+ // cada jugada de un rival consume el siguiente slot libre de su grupo.
+ var _preCursor = {}; // visualSlot -> siguiente idx libre en el grupo
+ for (var preI = yaColocadas; preI < sorted.length; preI++) {
+ var preEntry = sorted[preI];
+ var preServerPos = -1;
+ for (var preK = 0; preK < state.players.length; preK++) {
+ if (Number(state.players[preK].userId) === Number(preEntry.userId)) {
+ preServerPos = state.players[preK].position;
+ break;
+ }
+ }
+ if (preServerPos === -1 || preServerPos === myServerPos) continue;
+ var preVisual = serverToVisual[preServerPos];
+ if (preVisual === undefined) continue;
+ var preSlotStart = preVisual * 7;
+ if (_preCursor[preVisual] === undefined) _preCursor[preVisual] = preSlotStart;
+ var preTileMin = Math.min(preEntry.tile[0], preEntry.tile[1]);
+ var preTileMax = Math.max(preEntry.tile[0], preEntry.tile[1]);
+ // Avanzar el cursor hasta el próximo slot libre del grupo
+ while (_preCursor[preVisual] < preSlotStart + 7) {
+ var preF = partida.Ficha[_preCursor[preVisual]];
+ if (preF && !preF.Colocada) break;
+ _preCursor[preVisual]++;
+ }
+ if (_preCursor[preVisual] >= preSlotStart + 7) continue;
+ var preF2 = partida.Ficha[_preCursor[preVisual]];
+ var preVMin = Math.min(preF2.Valores[0], preF2.Valores[1]);
+ var preVMax = Math.max(preF2.Valores[0], preF2.Valores[1]);
+ if (preVMin !== preTileMin || preVMax !== preTileMax) {
+ if (typeof setFichaValores === 'function') setFichaValores(preF2, preEntry.tile);
+ else preF2.Valores = [preEntry.tile[0], preEntry.tile[1]];
+ }
+ _preCursor[preVisual]++; // avanzar para la próxima jugada de este rival
+ }
+
  for (var bi = yaColocadas; bi < sorted.length; bi++) {
  _reproducirJugada(partida, sorted[bi], serverToVisual, state.players);
  }
