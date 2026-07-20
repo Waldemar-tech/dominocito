@@ -632,6 +632,144 @@ export default function App() {
         </div>
       )}
 
+      {/* ── HEADER GAME — píldora negra única con logo + menú + balance + username ── */}
+      <header className="relative z-30 pt-4 px-6">
+        <div className="max-w-6xl mx-auto">
+          <div
+            className="flex items-center justify-between gap-4 px-5 py-3 rounded-full"
+            style={{
+              background: 'rgba(20, 10, 5, 0.85)',
+              border: '1px solid rgba(255, 233, 214, 0.08)',
+              backdropFilter: 'blur(10px)',
+            }}
+          >
+            {/* Logo + menú */}
+            <div className="flex items-center gap-6">
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => navigate('/')}
+                  className="flex items-center gap-2 transition-opacity hover:opacity-80"
+                  style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}
+                >
+                  <span style={{ fontSize: '22px' }}>🎲</span>
+                  <span
+                    className="font-black tracking-wide"
+                    style={{ color: 'var(--cream)', fontSize: '15px', letterSpacing: '0.05em' }}
+                  >
+                    Home
+                  </span>
+                </button>
+              </div>
+              <nav className="hidden md:flex items-center gap-5">
+                <button
+                  className="text-sm font-bold transition-opacity hover:opacity-100"
+                  style={{ color: 'var(--cream)', opacity: 0.85, background: 'none', border: 'none', cursor: 'pointer' }}
+                >
+                  Lobby
+                </button>
+                <button
+                  className="text-sm font-bold transition-opacity hover:opacity-100"
+                  style={{ color: 'var(--coral)', background: 'none', border: 'none', cursor: 'pointer' }}
+                >
+                  Juegos
+                </button>
+                <button
+                  className="text-sm font-bold transition-opacity hover:opacity-100"
+                  style={{ color: 'var(--cream)', opacity: 0.85, background: 'none', border: 'none', cursor: 'pointer' }}
+                >
+                  Ranking
+                </button>
+              </nav>
+            </div>
+
+            {/* Balance + username */}
+            <div className="flex items-center gap-3">
+              {/* Balance con moneda 🪙 + botón + */}
+              <div
+                className="flex items-center gap-2 px-3 py-2 rounded-full"
+                style={{ background: 'rgba(255, 255, 255, 0.06)' }}
+              >
+                <span style={{ fontSize: '14px' }}>🪙</span>
+                <span
+                  className="font-black text-sm"
+                  style={{ color: 'var(--white)', fontFamily: 'monospace' }}
+                >
+                  ₡{(wallet.balance * 1000).toLocaleString('es-VE', { maximumFractionDigits: 0 })}
+                </span>
+                <button
+                  onClick={handleAddTestingFunds}
+                  className="w-6 h-6 rounded-full flex items-center justify-center text-xs font-black transition-transform hover:scale-110"
+                  style={{
+                    background: '#E74C3C',
+                    color: 'white',
+                    border: 'none',
+                    cursor: 'pointer',
+                  }}
+                  title="Agregar fondos (testing)"
+                >
+                  +
+                </button>
+              </div>
+
+              {/* Username pill */}
+              <button
+                className="flex items-center gap-2 px-3 py-2 rounded-full transition-opacity hover:opacity-90"
+                style={{
+                  background: 'var(--coral)',
+                  color: 'white',
+                  border: 'none',
+                  cursor: 'pointer',
+                }}
+                title="Mi cuenta"
+              >
+                <span
+                  className="w-5 h-5 rounded-full flex items-center justify-center text-xs font-black"
+                  style={{ background: 'rgba(255, 255, 255, 0.25)' }}
+                >
+                  {currentUser.username[0].toUpperCase()}
+                </span>
+                <span className="text-sm font-bold hidden sm:inline">{currentUser.username}</span>
+                <span style={{ fontSize: '10px' }}>▾</span>
+              </button>
+            </div>
+          </div>
+
+          {/* Theme toggle + logout (debajo del header, discreto) */}
+          <div className="flex items-center justify-between gap-2 px-2 mt-2">
+            <div
+              className="flex items-center gap-1 p-1 rounded-full"
+              style={{ background: 'rgba(28, 18, 10, 0.5)' }}
+            >
+              {(['ivory', 'wood'] as DominoTheme[]).map(t => (
+                <button
+                  key={t}
+                  onClick={() => setTheme(t)}
+                  className="px-2 py-1 rounded-full text-xs font-bold transition-all"
+                  style={{
+                    background: theme === t
+                      ? (t === 'ivory' ? 'var(--cream)' : 'var(--wood-medium)')
+                      : 'transparent',
+                    color: theme === t
+                      ? (t === 'ivory' ? 'var(--walnut)' : 'var(--cream)')
+                      : 'var(--cream)',
+                    border: 'none',
+                    cursor: 'pointer',
+                  }}
+                >
+                  {t === 'ivory' ? '🦷' : '🪵'}
+                </button>
+              ))}
+            </div>
+            <button
+              onClick={handleLogout}
+              className="text-xs font-bold px-3 py-1 rounded-full"
+              style={{ background: 'rgba(255, 255, 255, 0.05)', color: 'var(--cream)', opacity: 0.6, border: 'none', cursor: 'pointer' }}
+            >
+              Salir
+            </button>
+          </div>
+        </div>
+      </header>
 
       {/* ── MAIN ──────────────────────────────────────────────── */}
       <main className="max-w-6xl mx-auto px-4 py-4">
