@@ -1,5 +1,5 @@
-import { useEffect, useState } from 'react';
-import { Link, useLocation } from 'react-router-dom';
+import { useEffect, useState, useRef } from 'react';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 
 interface GameLink {
   to: string;
@@ -16,15 +16,41 @@ const GAMES: GameLink[] = [
 
 export default function GameLogosBar() {
   const { pathname } = useLocation();
+  const navigate = useNavigate();
   const [username, setUsername] = useState<string | null>(null);
+  const [balance, setBalance] = useState<string | null>(null);
+  const [menuOpen, setMenuOpen] = useState(false);
+  const menuRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
     const u = localStorage.getItem('dc_username');
     setUsername(u);
+    const token = localStorage.getItem('dc_access_token');
+    if (token && u) {
+      fetch('/api/wallet/balance', {
+        headers: { Authorization: `Bearer ${token}` },
+      })
+        .then(r => r.ok ? r.json() : null)
+        .then(d => { if (d && d.balance_eur != null) setBalance(d.balance_eur); })
+        .catch(() => {});
+    } else {
+      setBalance(null);
+    }
     const onStorage = () => setUsername(localStorage.getItem('dc_username'));
     window.addEventListener('storage', onStorage);
     return () => window.removeEventListener('storage', onStorage);
   }, [pathname]);
+
+  // Cerrar el menú al hacer click fuera
+  useEffect(() => {
+    const onClick = (e: MouseEvent) => {
+      if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
+        setMenuOpen(false);
+      }
+    };
+    if (menuOpen) document.addEventListener('mousedown', onClick);
+    return () => document.removeEventListener('mousedown', onClick);
+  }, [menuOpen]);
 
   const isActive = (g: GameLink) =>
     g.active === 'exact' ? pathname === g.to : pathname.startsWith(g.to);
@@ -94,18 +120,61 @@ export default function GameLogosBar() {
       </div>
 
       {/* Right CTA */}
-      <div className="flex items-center gap-2">
+      <div className="flex items-center gap-2 pr-3">
         {username ? (
           <>
-            <span className="hidden sm:inline text-sm text-[#E5DDD5] pr-1">
-              Hola, <span className="font-bold text-[#FAE6C8]">{username}</span>
-            </span>
-            <button
-              onClick={logout}
-              className="px-4 py-2 text-sm bg-white/8 hover:bg-white/15 rounded-full transition border border-white/10"
-            >
-              Salir
-            </button>
+            {balance != null && (
+              <span
+                className="hidden sm:inline-flex items-center gap-1 px-3 py-1.5 rounded-full text-xs font-bold"
+                style={{ background: 'rgba(255,230,200,0.08)', color: '#FAE6C8' }}
+              >
+                🪙 €{balance}
+              </span>
+            )}
+            <div className="relative" ref={menuRef}>
+              <button
+                onClick={() => setMenuOpen((v) => !v)}
+                className="px-4 py-2 text-sm font-semibold text-white rounded-full flex items-center gap-1"
+                style={{
+                  background: 'linear-gradient(to right, #FF7B54, #F0623A)',
+                  boxShadow: '0 8px 18px -6px rgba(255,104,74,0.5)',
+                }}
+              >
+                👤 {username}
+                <span style={{ fontSize: 10, opacity: 0.85 }}>{menuOpen ? '▴' : '▾'}</span>
+              </button>
+              {menuOpen && (
+                <div
+                  className="absolute right-0 mt-2 w-44 rounded-2xl overflow-hidden shadow-2xl"
+                  style={{
+                    background: 'rgba(26, 20, 16, 0.97)',
+                    border: '1px solid rgba(255,230,200,0.08)',
+                    backdropFilter: 'blur(10px)',
+                  }}
+                >
+                  <Link
+                    to="/wallet"
+                    onClick={() => setMenuOpen(false)}
+                    className="block px-4 py-2.5 text-sm text-[#E5DDD5] hover:bg-white/5"
+                  >
+                    💰 Wallet
+                  </Link>
+                  <Link
+                    to="/profile"
+                    onClick={() => setMenuOpen(false)}
+                    className="block px-4 py-2.5 text-sm text-[#E5DDD5] hover:bg-white/5"
+                  >
+                    👤 Mi perfil
+                  </Link>
+                  <button
+                    onClick={logout}
+                    className="w-full text-left px-4 py-2.5 text-sm text-[#E5DDD5] hover:bg-white/5 border-t border-white/5"
+                  >
+                    ↪ Salir
+                  </button>
+                </div>
+              )}
+            </div>
           </>
         ) : (
           <>

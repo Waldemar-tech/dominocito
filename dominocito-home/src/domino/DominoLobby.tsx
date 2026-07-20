@@ -548,50 +548,6 @@ export default function DominoLobby() {
     <div
       className="min-h-screen relative"
     >
-      {/* Navbar flotante */}
-      <header className="relative z-30 pt-4 px-6">
-        <div className="max-w-6xl mx-auto">
-          <div
-            className="flex items-center justify-between gap-4 px-5 py-3 rounded-full"
-            style={{
-              background: 'rgba(20, 10, 5, 0.85)',
-              border: '1px solid rgba(255, 233, 214, 0.08)',
-              backdropFilter: 'blur(10px)',
-            }}
-          >
-            {/* Logo + menú */}
-            <div className="flex items-center gap-6">
-              <Link to="/" className="flex items-center gap-2 transition-opacity hover:opacity-80" style={{ textDecoration: 'none' }}>
-                <img src="/assets/logos/domino-clasico.png" alt="Dominó Clásico" style={{ height: '28px', width: 'auto', maxWidth: '120px' }} />
-              </Link>
-              <nav className="hidden md:flex items-center gap-5">
-                <span className="text-sm font-bold transition-opacity hover:opacity-100" style={{ color: 'var(--coral)', opacity: 0.9 }}>Lobby</span>
-                <span className="text-sm font-bold transition-opacity hover:opacity-100 cursor-pointer" style={{ color: 'var(--cream)', opacity: 0.85 }} onClick={() => document.getElementById('rooms-public')?.scrollIntoView({ behavior: 'smooth' })}>Mesas</span>
-                <span className="text-sm font-bold transition-opacity hover:opacity-100" style={{ color: 'var(--cream)', opacity: 0.85 }}>Ranking</span>
-              </nav>
-            </div>
-
-            {/* Right CTA */}
-            <div className="flex items-center gap-3">
-              {username ? (
-                <>
-                  <span className="hidden sm:inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-bold" style={{ background: 'rgba(255, 233, 214, 0.08)', color: 'var(--cream)' }}>
-                    🪙 €200
-                  </span>
-                  <span className="hidden sm:inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-bold" style={{ background: 'var(--coral)', color: '#fff' }}>
-                    👤 {username} ▾
-                  </span>
-                </>
-              ) : (
-                <>
-                  <button onClick={() => requireAuth('/domino')} className="hidden sm:inline px-4 py-2 text-sm transition" style={{ color: 'var(--cream)', opacity: 0.85, background: 'none', border: 'none', cursor: 'pointer' }}>Iniciar sesión</button>
-                  <button onClick={() => requireAuth('/domino')} className="px-5 py-2 text-sm font-bold rounded-full transition" style={{ background: 'var(--coral)', color: '#fff', border: 'none', cursor: 'pointer' }}>Regístrate</button>
-                </>
-              )}
-            </div>
-          </div>
-        </div>
-      </header>
 
       {/* Hero */}
       <section className="relative z-10 flex flex-col items-center justify-center text-center pt-16 pb-20 px-6">
