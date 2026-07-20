@@ -296,6 +296,9 @@ export default function DominoLobby() {
   const [username, setUsername] = useState<string | null>(null)
   const [publicRooms, setPublicRooms] = useState<Room[]>([])
   const [myRooms, setMyRooms] = useState<Room[]>([])
+  const [myPage, setMyPage] = useState(1)
+  const [publicPage, setPublicPage] = useState(1)
+  const PAGE_SIZE = 8
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [joinCode, setJoinCode] = useState('')
