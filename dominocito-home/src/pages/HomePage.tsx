@@ -148,18 +148,18 @@ export default function HomePage() {
                 Hola, <span className="font-bold text-[#FAE6C8]">{user.username}</span>
               </span>
               <button onClick={handleLogout}
-                className="px-4 py-2 text-sm bg-white/8 hover:bg-white/15 rounded-full transition border border-white/10">
+                className="px-4 py-2 text-sm bg-white/8 hover:bg-white/15 rounded-full transition border border-white/10 cursor-pointer">
                 Salir
               </button>
             </>
           ) : (
             <>
               <button onClick={handleLogin}
-                className="hidden sm:inline px-4 py-2 text-sm text-[#E5DDD5] hover:text-[#FAE6C8] transition">
+                className="hidden sm:inline px-4 py-2 text-sm text-[#E5DDD5] hover:text-[#FAE6C8] transition cursor-pointer">
                 Iniciar sesión
               </button>
               <button onClick={handleLogin}
-                className="px-5 py-2 text-sm font-semibold text-white rounded-full"
+                className="px-5 py-2 text-sm font-semibold text-white rounded-full cursor-pointer"
                 style={{
                   background: 'linear-gradient(to right, #FF7B54, #F0623A)',
                   boxShadow: '0 8px 18px -6px rgba(255,104,74,0.5)',
