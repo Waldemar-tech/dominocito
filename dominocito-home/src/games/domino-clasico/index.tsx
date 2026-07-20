@@ -119,7 +119,7 @@ export default function DominoClasicoHome() {
 
           {/* CTA hero */}
           <button
-            onClick={() => navigate('/domino')}
+            onClick={() => navigate('/domino/lobby')}
             className="btn-coral-hero mt-10 inline-flex items-center gap-3"
             style={{
               background: C.cayena,
@@ -320,7 +320,7 @@ export default function DominoClasicoHome() {
             Mesas públicas 24/7 o creá tu sala privada con código.
           </p>
           <button
-            onClick={() => navigate('/domino')}
+            onClick={() => navigate('/domino/lobby')}
             style={{
               background: C.cayena,
               color: '#fff',

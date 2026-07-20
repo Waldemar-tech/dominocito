@@ -2,6 +2,7 @@ import { Routes, Route, useNavigate, useLocation } from 'react-router-dom'
 import { lazy, Suspense, useEffect } from 'react'
 import HomePage from './pages/HomePage'
 import DominoRoom from './domino/DominoRoom'
+import DominoLobby from './domino/DominoLobby'
 import AuthScreen from './domino/AuthScreen'
 import DominoClasicoHome from './games/domino-clasico'
 import GameLogosBar from './components/GameLogosBar'
@@ -41,6 +42,7 @@ export default function App() {
           <Route path="/" element={<HomeRedirect />} />
           <Route path="/login" element={<AuthScreen />} />
           <Route path="/domino" element={<GlobalFrame><DominoClasicoHome /></GlobalFrame>} />
+          <Route path="/domino/lobby" element={<GlobalFrame><DominoLobby /></GlobalFrame>} />
           <Route path="/domino/room/:code" element={<GlobalFrame><DominoRoom /></GlobalFrame>} />
           <Route path="/pinta-y-gana" element={<GlobalFrame><PintaYGana /></GlobalFrame>} />
           <Route path="/loteria" element={<GlobalFrame><LoteriaPage /></GlobalFrame>} />

@@ -39,6 +39,258 @@ interface Toast {
   message: string
 }
 
+function CreateRoomModal({
+  initial,
+  onCancel,
+  onConfirm,
+  loading,
+}: {
+  initial: {
+    isPrivate: boolean
+    maxPlayers: 2 | 4
+    gameMode: 'individual' | 'teams'
+    teamMode: 'manual' | 'choose' | 'random' | null
+    targetScore: number | null
+  }
+  onCancel: () => void
+  onConfirm: (cfg: typeof initial) => void
+  loading: boolean
+}) {
+  const [cfg, setCfg] = useState(initial)
+
+  // Al cambiar a individual, limpiar teamMode
+  function setGameMode(m: 'individual' | 'teams') {
+    setCfg((c) => ({
+      ...c,
+      gameMode: m,
+      teamMode: m === 'teams' ? (c.teamMode ?? 'manual') : null,
+      // Si bajamos de teams a individual y targetScore quedó seteado, lo limpiamos
+      targetScore: m === 'teams' ? c.targetScore : null,
+      // Parejas exige 4
+      maxPlayers: m === 'teams' ? 4 : c.maxPlayers,
+    }))
+  }
+  function setMaxPlayers(n: 2 | 4) {
+    setCfg((c) => ({ ...c, maxPlayers: n }))
+  }
+  function setTeamMode(m: 'manual' | 'choose' | 'random') {
+    setCfg((c) => ({ ...c, teamMode: m }))
+  }
+  function setTargetScore(v: string) {
+    if (v === '') {
+      setCfg((c) => ({ ...c, targetScore: null }))
+      return
+    }
+    const n = parseInt(v, 10)
+    if (!Number.isNaN(n) && n >= 1 && n <= 10000) {
+      setCfg((c) => ({ ...c, targetScore: n }))
+    }
+  }
+
+  return (
+    <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm">
+      <div className="bg-[#1a1207] border border-yellow-500/30 rounded-2xl w-full max-w-lg shadow-2xl overflow-hidden">
+        <div className="px-6 py-4 border-b border-white/10 flex items-center justify-between">
+          <div>
+            <div className="text-xs uppercase tracking-wide text-yellow-300/80">
+              {cfg.isPrivate ? '🔒 Sala privada' : '🌐 Sala pública'}
+            </div>
+            <h3 className="text-xl font-bold text-white">Configurar partida</h3>
+          </div>
+          <button
+            onClick={onCancel}
+            className="text-white/60 hover:text-white text-2xl leading-none px-2"
+            aria-label="Cerrar"
+          >
+            ×
+          </button>
+        </div>
+
+        <div className="px-6 py-5 space-y-5 max-h-[70vh] overflow-y-auto">
+          {/* Jugadores */}
+          <div>
+            <label className="block text-xs font-bold uppercase tracking-wide text-white/60 mb-2">
+              Cantidad de jugadores
+            </label>
+            <div className="grid grid-cols-2 gap-2">
+              <button
+                onClick={() => setMaxPlayers(2)}
+                className={`py-3 rounded-lg font-bold transition ${
+                  cfg.maxPlayers === 2
+                    ? 'bg-emerald-500 text-white'
+                    : 'bg-white/5 text-white/70 border border-white/10 hover:bg-white/10'
+                }`}
+              >
+                2 (1 vs 1)
+              </button>
+              <button
+                onClick={() => setMaxPlayers(4)}
+                className={`py-3 rounded-lg font-bold transition ${
+                  cfg.maxPlayers === 4
+                    ? 'bg-emerald-500 text-white'
+                    : 'bg-white/5 text-white/70 border border-white/10 hover:bg-white/10'
+                }`}
+              >
+                4
+              </button>
+            </div>
+          </div>
+
+          {/* Modo de juego */}
+          <div>
+            <label className="block text-xs font-bold uppercase tracking-wide text-white/60 mb-2">
+              Modo de juego
+            </label>
+            <div className="grid grid-cols-2 gap-2">
+              <button
+                onClick={() => setGameMode('individual')}
+                className={`py-3 rounded-lg font-bold transition ${
+                  cfg.gameMode === 'individual'
+                    ? 'bg-emerald-500 text-white'
+                    : 'bg-white/5 text-white/70 border border-white/10 hover:bg-white/10'
+                }`}
+              >
+                🧍 Individual
+              </button>
+              <button
+                onClick={() => setGameMode('teams')}
+                disabled={cfg.maxPlayers !== 4}
+                className={`py-3 rounded-lg font-bold transition ${
+                  cfg.gameMode === 'teams'
+                    ? 'bg-purple-500 text-white'
+                    : 'bg-white/5 text-white/70 border border-white/10 hover:bg-white/10 disabled:opacity-40 disabled:cursor-not-allowed'
+                }`}
+              >
+                👥 Parejas
+              </button>
+            </div>
+            {cfg.maxPlayers !== 4 && cfg.gameMode === 'teams' && (
+              <p className="text-xs text-yellow-300/80 mt-1">
+                Parejas requiere 4 jugadores.
+              </p>
+            )}
+          </div>
+
+          {/* Quién arma los equipos (solo parejas) */}
+          {cfg.gameMode === 'teams' && (
+            <div>
+              <label className="block text-xs font-bold uppercase tracking-wide text-white/60 mb-2">
+                ¿Quién arma los equipos?
+              </label>
+              <div className="grid grid-cols-1 gap-2">
+                <button
+                  onClick={() => setTeamMode('manual')}
+                  className={`text-left px-4 py-3 rounded-lg transition ${
+                    cfg.teamMode === 'manual'
+                      ? 'bg-purple-500 text-white'
+                      : 'bg-white/5 text-white/80 border border-white/10 hover:bg-white/10'
+                  }`}
+                >
+                  <div className="font-bold">🛠️ Yo (el host) los armo</div>
+                  <div className="text-xs opacity-80">
+                    Vos elegís quién va con quién antes de iniciar.
+                  </div>
+                </button>
+                <button
+                  onClick={() => setTeamMode('choose')}
+                  className={`text-left px-4 py-3 rounded-lg transition ${
+                    cfg.teamMode === 'choose'
+                      ? 'bg-purple-500 text-white'
+                      : 'bg-white/5 text-white/80 border border-white/10 hover:bg-white/10'
+                  }`}
+                >
+                  <div className="font-bold">🙋 Cada uno elige su equipo</div>
+                  <div className="text-xs opacity-80">
+                    Los jugadores toman Equipo 1 o Equipo 2 al entrar a la mesa.
+                  </div>
+                </button>
+                <button
+                  onClick={() => setTeamMode('random')}
+                  className={`text-left px-4 py-3 rounded-lg transition ${
+                    cfg.teamMode === 'random'
+                      ? 'bg-purple-500 text-white'
+                      : 'bg-white/5 text-white/80 border border-white/10 hover:bg-white/10'
+                  }`}
+                >
+                  <div className="font-bold">🎲 Al azar</div>
+                  <div className="text-xs opacity-80">
+                    Se sortean los equipos al iniciar la partida.
+                  </div>
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* Puntos objetivo (solo parejas) */}
+          {cfg.gameMode === 'teams' && (
+            <div>
+              <label className="block text-xs font-bold uppercase tracking-wide text-white/60 mb-2">
+                Puntos objetivo (opcional)
+              </label>
+              <div className="flex items-center gap-3">
+                <input
+                  type="number"
+                  min={1}
+                  max={10000}
+                  placeholder="Una sola mano"
+                  value={cfg.targetScore ?? ''}
+                  onChange={(e) => setTargetScore(e.target.value)}
+                  className="flex-1 px-4 py-3 rounded-lg bg-white/10 border border-white/20 focus:border-yellow-400 focus:outline-none text-white"
+                />
+                <span className="text-white/60 text-sm">puntos</span>
+              </div>
+              <p className="text-xs text-white/50 mt-1">
+                Si lo dejás vacío, se juega una sola mano. Con puntos, gana quien los alcance primero.
+              </p>
+            </div>
+          )}
+
+          {/* Resumen */}
+          <div className="bg-white/5 rounded-lg p-3 text-sm text-white/80 border border-white/10">
+            <div className="font-bold text-yellow-300 mb-1">Resumen</div>
+            <ul className="space-y-0.5">
+              <li>• {cfg.maxPlayers} jugadores</li>
+              <li>• {cfg.gameMode === 'teams' ? 'Parejas (2 vs 2)' : 'Individual (todos contra todos)'}</li>
+              {cfg.gameMode === 'teams' && cfg.teamMode && (
+                <li>
+                  • Equipos:{' '}
+                  {cfg.teamMode === 'manual'
+                    ? 'los arma el host'
+                    : cfg.teamMode === 'choose'
+                    ? 'cada uno elige'
+                    : 'al azar al iniciar'}
+                </li>
+              )}
+              <li>
+                •{' '}
+                {cfg.targetScore && cfg.targetScore > 0
+                  ? `Partido a ${cfg.targetScore} puntos`
+                  : 'Una sola mano'}
+              </li>
+            </ul>
+          </div>
+        </div>
+
+        <div className="px-6 py-4 border-t border-white/10 flex gap-2 justify-end">
+          <button
+            onClick={onCancel}
+            className="px-4 py-2 text-white/70 hover:text-white"
+          >
+            Cancelar
+          </button>
+          <button
+            onClick={() => onConfirm(cfg)}
+            disabled={loading}
+            className="px-6 py-2 bg-yellow-500 text-emerald-950 font-bold rounded-lg hover:bg-yellow-400 disabled:opacity-50"
+          >
+            {loading ? 'Creando…' : '🎲 Crear sala'}
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 export default function DominoLobby() {
   const navigate = useNavigate()
   const [username, setUsername] = useState<string | null>(null)
@@ -118,20 +370,52 @@ export default function DominoLobby() {
     }
   }, [loadRooms])
 
-  async function createRoom(isPrivate: boolean) {
+  // Config de sala privada/pública antes de crearla
+  type RoomConfig = {
+    isPrivate: boolean
+    maxPlayers: 2 | 4
+    gameMode: 'individual' | 'teams'
+    teamMode: 'manual' | 'choose' | 'random' | null
+    targetScore: number | null
+  }
+  const [configModal, setConfigModal] = useState<RoomConfig | null>(null)
+  function openCreateModal(isPrivate: boolean) {
+    setConfigModal({
+      isPrivate,
+      maxPlayers: 4,
+      gameMode: 'individual',
+      teamMode: null,
+      targetScore: null,
+    })
+  }
+  function closeConfigModal() {
+    setConfigModal(null)
+  }
+  async function submitCreateRoom(cfg: RoomConfig) {
     setLoading(true)
     setError(null)
     const token = requireAuth('/domino')
     if (!token) { setLoading(false); return }
 
     try {
+      const body: any = {
+        isPrivate: cfg.isPrivate,
+        maxPlayers: cfg.maxPlayers,
+        gameMode: cfg.gameMode,
+      }
+      if (cfg.gameMode === 'teams') {
+        body.teamMode = cfg.teamMode
+        if (cfg.targetScore && cfg.targetScore > 0) {
+          body.targetScore = cfg.targetScore
+        }
+      }
       const res = await fetch(`${API_URL}/domino/rooms`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           Authorization: `Bearer ${token}`,
         },
-        body: JSON.stringify({ isPrivate, maxPlayers: 4 }),
+        body: JSON.stringify(body),
       })
       const data = await res.json().catch(() => ({ error: 'Respuesta inválida' }))
       if (!res.ok) {
@@ -147,6 +431,7 @@ export default function DominoLobby() {
         return
       }
       pushToast('success', `Sala ${data.room.code} creada`)
+      setConfigModal(null)
       navigate(`/domino/room/${data.room.code}`)
     } catch (err: any) {
       const msg = err.message?.includes('Failed to fetch')
@@ -262,12 +547,6 @@ export default function DominoLobby() {
   return (
     <div
       className="min-h-screen relative"
-      style={{
-        backgroundImage: "url('/assets/domino-lobby-bg.jpg')",
-        backgroundSize: 'cover',
-        backgroundPosition: 'center',
-        backgroundRepeat: 'no-repeat',
-      }}
     >
       {/* Navbar flotante */}
       <header className="relative z-30 pt-4 px-6">
@@ -316,24 +595,11 @@ export default function DominoLobby() {
 
       {/* Hero */}
       <section className="relative z-10 flex flex-col items-center justify-center text-center pt-16 pb-20 px-6">
-        <h1
-          className="font-black tracking-tight"
-          style={{
-            fontFamily: 'var(--font-display)',
-            fontSize: 'clamp(60px, 10vw, 130px)',
-            color: 'var(--cream)',
-            textShadow: '4px 4px 0 #1a0a05, -2px -2px 0 #1a0a05, 8px 8px 32px rgba(0,0,0,0.7)',
-            letterSpacing: '-0.02em',
-            lineHeight: 0.95,
-          }}
-        >
-          DOMINÓ<br />CLÁSICO
-        </h1>
         <p className="mt-4 text-base" style={{ color: 'var(--cream)', opacity: 0.85 }}>
           4 jugadores · 28 fichas · 100 puntos
         </p>
         <button
-          onClick={() => createRoom(false)}
+          onClick={() => openCreateModal(false)}
           disabled={loading}
           className="mt-8 px-10 py-4 text-lg font-bold rounded-full transition transform hover:scale-105"
           style={{
@@ -386,7 +652,7 @@ export default function DominoLobby() {
               Creá una sala con código e invitá amigos.
             </p>
             <button
-              onClick={() => createRoom(true)}
+              onClick={() => openCreateModal(true)}
               disabled={loading}
               className="w-full py-3 bg-yellow-500 text-emerald-950 font-bold rounded-lg hover:bg-yellow-400 disabled:opacity-50 transition"
             >
@@ -431,7 +697,7 @@ export default function DominoLobby() {
           <div className="flex items-center justify-between mb-4">
             <h3 className="text-lg font-bold">🌐 Mesas públicas</h3>
             <button
-              onClick={() => createRoom(false)}
+              onClick={() => openCreateModal(false)}
               disabled={loading}
               className="px-4 py-2 text-sm bg-white/10 hover:bg-white/20 rounded-lg transition disabled:opacity-50"
             >
@@ -483,6 +749,16 @@ export default function DominoLobby() {
           </ul>
         </div>
       </div>
+
+      {/* Modal de configuración de sala */}
+      {configModal && (
+        <CreateRoomModal
+          initial={configModal}
+          onCancel={closeConfigModal}
+          onConfirm={submitCreateRoom}
+          loading={loading}
+        />
+      )}
 
       {/* Toasts */}
       <div className="fixed top-4 right-4 z-50 flex flex-col gap-2 max-w-sm">

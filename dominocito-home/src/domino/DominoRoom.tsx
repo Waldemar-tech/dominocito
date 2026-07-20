@@ -7,7 +7,9 @@ import GameBoard from './GameBoard'
 interface Player {
   user_id: number
   username: string
+  display_name?: string
   position: number
+  team: number | null
   is_connected: boolean
 }
 
@@ -20,6 +22,9 @@ interface RoomInfo {
   max_players: number
   status: string
   players: Player[]
+  game_mode?: 'individual' | 'teams'
+  team_mode?: 'manual' | 'choose' | 'random' | null
+  target_score?: number | null
 }
 
 interface GameState {
@@ -161,6 +166,7 @@ export default function DominoRoom() {
     socket.on('domino:started', () => pushToast('🎲 ¡La partida empezó!'))
     socket.on('domino:player_joined', () => loadRoomInfo())
     socket.on('domino:player_left', () => loadRoomInfo())
+    socket.on('domino:lobby', () => loadRoomInfo())
 
     socket.on('domino:turn_timeout', (data: any) =>
       pushToast(`⏱️ Tiempo agotado para posición ${data.position + 1}`)
@@ -207,6 +213,16 @@ export default function DominoRoom() {
   function passTurn() {
     if (!socketRef.current || !roomInfo) return
     socketRef.current.emit('domino:pass')
+  }
+
+  function chooseTeam(team: 0 | 1) {
+    if (!socketRef.current || !roomInfo) return
+    socketRef.current.emit('domino:choose_team', { team })
+  }
+
+  function setTeams(assignments: Array<{ userId: number; team: 0 | 1 }>) {
+    if (!socketRef.current || !roomInfo) return
+    socketRef.current.emit('domino:set_teams', { teams: assignments })
   }
 
   async function leaveRoom() {
@@ -330,6 +346,8 @@ export default function DominoRoom() {
             socketConnected={socketConnected}
             onStart={startGame}
             onLeave={leaveRoom}
+            onChooseTeam={chooseTeam}
+            onSetTeams={setTeams}
           />
         )}
 
