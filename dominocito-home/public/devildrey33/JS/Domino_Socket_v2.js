@@ -272,10 +272,13 @@ function _reproducirJugada(partida, boardEntry, serverToVisual, players) {
  // Buscar la ficha por valor en todo el array (incluyendo boca abajo de oponentes)
  var tile = boardEntry.tile;
  var fichaIdx = -1;
- // FIX: arrancar en 7, no en 0. Los slots 0-6 son la mano del viewer y
- // NUNCA deben ser consumidos por la reproducción del tablero. Las fichas
- // de oponentes (incluida la apertura) viven en 7-27.
- for (var fi = 7; fi < partida.Ficha.length; fi++) {
+ // Buscar en todos los slots — el viewer también puede haber jugado la apertura.
+ // Priorizar slots de oponentes (7-27) para no consumir la mano del viewer
+ // antes de buscar en sus slots (0-6).
+ var searchOrder = [];
+ for (var _si = 7; _si < 28; _si++) searchOrder.push(_si);
+ for (var _si2 = 0; _si2 < 7; _si2++) searchOrder.push(_si2);
+ for (var _sii = 0; _sii < searchOrder.length; _sii++) { var fi = searchOrder[_sii]; {
  var f = partida.Ficha[fi];
  if (!f || f.Colocada) continue;
  var v = f.Valores;
@@ -284,7 +287,7 @@ function _reproducirJugada(partida, boardEntry, serverToVisual, players) {
  fichaIdx = fi;
  break;
  }
- }
+ } } // cierre del doble-loop searchOrder
 
  console.log('[Socket] _reproducirJugada tile=' + JSON.stringify(tile) + ' found=' + fichaIdx + ' colocadas_antes=' + (function(){ var n=0; for(var x=0;x<partida.Ficha.length;x++) if(partida.Ficha[x].Colocada) n++; return n; })());
  if (fichaIdx === -1) {

@@ -2,7 +2,7 @@ import { useState, useEffect, useRef, useCallback } from 'react'
 import { useParams, useNavigate, Link } from 'react-router-dom'
 import { io, Socket } from 'socket.io-client'
 import WaitingRoom from './WaitingRoom'
-import GameBoard from './GameBoard'
+import Domino33 from './three/Domino33'
 
 interface Player {
   user_id: number
@@ -352,13 +352,11 @@ export default function DominoRoom() {
         )}
 
         {(roomInfo.status === 'playing' || roomInfo.status === 'finished') && gameState && (
-          <GameBoard
+          <Domino33
             gameState={gameState}
-            roomInfo={roomInfo}
             myUserId={myUserId!}
             onPlay={playTile}
             onPass={passTurn}
-            onLeave={leaveRoom}
           />
         )}
 

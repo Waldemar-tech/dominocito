@@ -531,23 +531,32 @@ export function setupDominoSocket(io: Server) {
         const roomId = Number(data?.roomId);
         if (!Number.isInteger(roomId)) return;
 
+        // FIX: s.join() antes del pool.query para que el socket esté en la room
+        // inmediatamente, sin esperar la latencia de DB (VPN remota ~500ms).
+        // Si la validación falla luego, hacemos s.leave().
+        s.join(`domino:${roomId}`);
+        s.roomId = roomId;
+        trackSocket(roomId, s.userId, s.id);
+
         const member = await pool.query(
           `SELECT position FROM dc_domino_players WHERE room_id = $1 AND user_id = $2`,
           [roomId, s.userId]
         );
         if (member.rows.length === 0) {
+          s.leave(`domino:${roomId}`);
+          s.roomId = undefined as any;
           s.emit('error', { event: 'domino:join', error: 'No eres parte de esta mesa' });
           return;
         }
 
-        s.join(`domino:${roomId}`);
-        s.roomId = roomId;
-        trackSocket(roomId, s.userId, s.id);
-
-        await pool.query(
-          `UPDATE dc_domino_players SET is_connected = true, socket_id = $1 WHERE room_id = $2 AND user_id = $3`,
-          [s.id, roomId, s.userId]
-        );
+        // FIX: hacer is_connected async (no bloqueante) para evitar que el
+        // FOR KEY SHARE de la FK bloquee el domino:start concurrente.
+        setImmediate(() => {
+          pool.query(
+            `UPDATE dc_domino_players SET is_connected = true, socket_id = $1 WHERE room_id = $2 AND user_id = $3`,
+            [s.id, roomId, s.userId]
+          ).catch(e => console.warn('[Domino] join is_connected update error (non-critical):', e?.message));
+        });
 
         let state = getOrLoadState(roomId);
         if (!state) state = await loadStateFromDB(roomId);
@@ -570,7 +579,6 @@ export function setupDominoSocket(io: Server) {
     // ─── Start ───────────────────────────────────────────
     s.on('domino:start', async () => {
       try {
-        if (!s.userId) return;
         const roomId = s.roomId;
         if (!roomId) {
           s.emit('error', { event: 'domino:start', error: 'No estás en una sala' });
@@ -578,27 +586,44 @@ export function setupDominoSocket(io: Server) {
         }
 
         // Lock de la sala: dos 'start' simultáneos repartían dos veces.
-        const client = await pool.connect();
-        let state: GameState;
-        try {
+        // FIX 2026-07-20: retry en deadlock (40P01). El domino:join concurrente
+        // genera FOR KEY SHARE en dc_domino_rooms que compite con FOR UPDATE.
+        let state!: GameState;
+        for (let _attempt = 0; _attempt <= 5; _attempt++) {
+          if (_attempt > 0) await new Promise((r: (v?: unknown) => void) => setTimeout(r, 300 * _attempt));
+          let client: any;
+          let _deadlocked = false;
+          try {
+          client = await pool.connect();
           await client.query('BEGIN');
-          const roomResult = await client.query(
-            `SELECT id, host_user_id, status, game_mode, team_mode, target_score FROM dc_domino_rooms WHERE id = $1 FOR UPDATE`,
-            [roomId]
+          // FIX: reemplazar SELECT FOR UPDATE por UPDATE atómico con RETURNING.
+          // El FOR UPDATE genera ShareLock en la FK desde dc_domino_players,
+          // causando deadlock con domino:join concurrente.
+          // El UPDATE WHERE status='waiting' AND host_user_id=$userId es atómico
+          // y no bloquea a otros readers/writers de dc_domino_players.
+          const claimResult = await client.query(
+            `UPDATE dc_domino_rooms
+             SET status = 'starting'
+             WHERE id = $1 AND status = 'waiting' AND host_user_id = $2
+             RETURNING id, host_user_id, status, game_mode, team_mode, target_score`,
+            [roomId, s.userId]
           );
-          if (roomResult.rows.length === 0) { await client.query('ROLLBACK'); return; }
-          const room = roomResult.rows[0];
-
-          if (room.host_user_id !== s.userId) {
+          if (claimResult.rows.length === 0) {
+            // Verificar por qué falló
+            const check = await client.query(
+              `SELECT host_user_id, status FROM dc_domino_rooms WHERE id = $1`,
+              [roomId]
+            );
             await client.query('ROLLBACK');
-            s.emit('error', { event: 'domino:start', error: 'Solo el host puede iniciar' });
+            if (check.rows.length === 0) return;
+            if (check.rows[0].host_user_id !== s.userId) {
+              s.emit('error', { event: 'domino:start', error: 'Solo el host puede iniciar' });
+            } else {
+              s.emit('error', { event: 'domino:start', error: 'La mesa ya empezó' });
+            }
             return;
           }
-          if (room.status !== 'waiting') {
-            await client.query('ROLLBACK');
-            s.emit('error', { event: 'domino:start', error: 'La mesa ya empezó' });
-            return;
-          }
+          const room = { ...claimResult.rows[0], status: 'waiting' }; // status original para checks internos
 
           const playersResult = await client.query(
             `SELECT p.user_id, p.position, p.team, u.username
@@ -627,7 +652,7 @@ export function setupDominoSocket(io: Server) {
               return;
             }
 
-            const members: RoomMember[] = playersResult.rows.map(r => ({
+            const members: RoomMember[] = playersResult.rows.map((r: any) => ({
               userId: r.user_id,
               team: (r.team === 0 || r.team === 1 ? r.team : null) as TeamId | null,
             }));
@@ -652,17 +677,24 @@ export function setupDominoSocket(io: Server) {
               return;
             }
 
-            // Persistimos los asientos/equipos definitivos.
-            for (const s2 of seats) {
-              seatByUser[s2.userId] = { position: s2.position as Position, team: s2.team };
-              await client.query(
-                `UPDATE dc_domino_players SET position = $1, team = $2 WHERE room_id = $3 AND user_id = $4`,
-                [s2.position, s2.team, roomId, s2.userId]
-              );
+            // FIX: usar SET CONSTRAINTS DEFERRED dentro de la TX para que
+            // el unique (room_id, position) se valide al COMMIT y no por fila.
+            // Requiere que la constraint sea DEFERRABLE (ver migración 004).
+            if (seats.length > 0) {
+              for (const s2 of seats) {
+                seatByUser[s2.userId] = { position: s2.position as Position, team: s2.team };
+              }
+              await client.query(`SET CONSTRAINTS dc_domino_players_room_id_position_key DEFERRED`);
+              for (const s2 of seats) {
+                await client.query(
+                  `UPDATE dc_domino_players SET position = $1, team = $2 WHERE room_id = $3 AND user_id = $4`,
+                  [s2.position, s2.team, roomId, s2.userId]
+                );
+              }
             }
           }
 
-          const players: PlayerState[] = playersResult.rows.map(r => {
+          const players: PlayerState[] = playersResult.rows.map((r: any) => {
             const override = seatByUser[r.user_id];
             return {
               userId: r.user_id,
@@ -694,23 +726,32 @@ export function setupDominoSocket(io: Server) {
           );
           await client.query('COMMIT');
           if (match) matches.set(roomId, match);
-        } catch (e) {
-          await client.query('ROLLBACK').catch(() => {});
-          throw e;
-        } finally {
-          client.release();
-        }
-
+          } catch (e: any) {
+            await client.query('ROLLBACK').catch(() => {});
+            if ((e?.code === '40P01' || e?.code === '55P03') && _attempt < 5) {
+              console.warn(`[Domino] start deadlock — retry ${_attempt + 1}/5`, { roomId });
+              _deadlocked = true;
+            } else { throw e; }
+          } finally { if (client) client.release(); }
+          if (!_deadlocked) break;
+        } // fin retry loop
         gameStates.set(roomId, state);
 
+        // Emitir estado individual a cada jugador por socketId (roomSockets)
+        // O por re-join si el socket aún no registró su sid.
         const map = roomSockets.get(roomId);
         for (const p of state.players) {
           const sid = map?.get(p.userId);
-          if (!sid) continue;
-          const safe = getSafeState(state, p.userId);
-          io.to(sid).emit('domino:state', safe);
-          io.to(sid).emit('domino:started', { state: safe });
+          if (sid) {
+            const safe = getSafeState(state, p.userId);
+            io.to(sid).emit('domino:state', safe);
+            io.to(sid).emit('domino:started', { state: safe });
+          }
         }
+        // FIX: broadcast 'domino:started' a toda la Socket.IO room para que
+        // los sockets que aún no estaban en roomSockets reciban la señal
+        // y hagan re-join para obtener su estado filtrado.
+        io.to(`domino:${roomId}`).emit('domino:started', { roomId });
 
         startTurnTimer(io, roomId);
       } catch (err) {
@@ -947,10 +988,21 @@ export function setupDominoSocket(io: Server) {
 
         untrackSocket(roomId, userId, s.id);
 
-        await pool.query(
-          `UPDATE dc_domino_players SET is_connected = false WHERE room_id = $1 AND user_id = $2`,
-          [roomId, userId]
-        );
+        // FIX: retry en deadlock — is_connected es non-critical, toleramos retry
+        for (let _d = 0; _d <= 2; _d++) {
+          try {
+            await pool.query(
+              `UPDATE dc_domino_players SET is_connected = false WHERE room_id = $1 AND user_id = $2`,
+              [roomId, userId]
+            );
+            break;
+          } catch (e: any) {
+            if (e?.code === '40P01' && _d < 2) {
+              await new Promise((r: (v?: unknown) => void) => setTimeout(r, 100 * (_d + 1)));
+            } else if (e?.code !== '40P01') { throw e; }
+            // si agotó reintentos en deadlock, silenciar (non-critical)
+          }
+        }
 
         s.to(`domino:${roomId}`).emit('domino:player_left', { userId });
 
