@@ -181,13 +181,13 @@ export default function GameLogosBar() {
           <>
             <button
               onClick={() => openAuth('login')}
-              className="hidden sm:inline px-4 py-2 text-sm text-[#E5DDD5] hover:text-[#FAE6C8] transition"
+              className="hidden sm:inline px-4 py-2 text-sm text-[#E5DDD5] hover:text-[#FAE6C8] transition cursor-pointer"
             >
               Iniciar sesión
             </button>
             <button
               onClick={() => openAuth('register')}
-              className="px-5 py-2 text-sm font-semibold text-white rounded-full"
+              className="px-5 py-2 text-sm font-semibold text-white rounded-full cursor-pointer"
               style={{
                 background: 'linear-gradient(to right, #FF7B54, #F0623A)',
                 boxShadow: '0 8px 18px -6px rgba(255,104,74,0.5)',
