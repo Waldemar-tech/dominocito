@@ -3,6 +3,7 @@ import { useParams, useNavigate, Link } from 'react-router-dom'
 import { io, Socket } from 'socket.io-client'
 import WaitingRoom from './WaitingRoom'
 import Domino33 from './three/Domino33'
+import Domino2D from './Domino2D'
 
 interface Player {
   user_id: number
@@ -352,12 +353,15 @@ export default function DominoRoom() {
         )}
 
         {(roomInfo.status === 'playing' || roomInfo.status === 'finished') && gameState && (
-          <Domino33
+          <Domino2D
             gameState={gameState}
             myUserId={myUserId!}
             onPlay={playTile}
             onPass={passTurn}
+            mesa="club"
+            setFichas="dibujito"
           />
+          /* Domino33 queda de respaldo — cambiar Domino2D por Domino33 para volver al 3D */
         )}
 
         {/* Toast */}
