@@ -180,7 +180,7 @@ export default function Domino2D({
         drawTile(ctx, x, y - C / 2, L, C, false, s.tile, false, false);
         x += C + 4;
       } else {
-        const flip = s.leftVal > s.rightVal;
+        const flip = s.leftVal < s.rightVal;
         drawTile(ctx, x, y, L, C, true, s.tile, false, flip);
         x += L + 4;
       }
