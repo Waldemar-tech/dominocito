@@ -34,8 +34,8 @@ const TEAMS: Record<number, { nombre: string; color: string }> = {
 };
 
 // ---------------------------------------------------------------------------
-//  Serpenteo del tablero (forma de U, centrado, bidireccional desde la salida)
-//  Se ata al FIELTRO (zona de juego), no al canvas => nunca invade las manos.
+// Serpenteo del tablero (forma de U, centrado, bidireccional desde la salida)
+// Se ata al FIELTRO (zona de juego), no al canvas => nunca invade las manos.
 // ---------------------------------------------------------------------------
 type Rect = { x: number; y: number; w: number; h: number };
 
@@ -43,37 +43,27 @@ type Rect = { x: number; y: number; w: number; h: number };
 // arriba/abajo/lados (posición fija, no depende de la mesa), así que este rect
 // las evita y sirve para las 5 mesas.
 // ⚠ AFINA por mesa con calibrador_mesas.html si el fieltro visual de alguna
-//   .jpg es más chico; agrega la clave en FIELTRO para sobreescribir el default.
-const FIELTRO_DEFAULT: Rect = { x: 0.1125, y: 0.115, w: 0.775, h: 0.665 };
+// .jpg es más chico; agrega la clave en FIELTRO para sobreescribir el default.
+const FIELTRO_DEFAULT: Rect = { x: 0.20, y: 0.25, w: 0.60, h: 0.55 };
 const FIELTRO: Record<string, Rect> = {
-  // club: { x: .., y: .., w: .., h: .. },   // override opcional por mesa
+  // club: { x: .., y: .., w: .., h: .. }, // override opcional por mesa
 };
 
 type SeqItem = { tile: Tile; doble: boolean; leftVal: number; rightVal: number; salida?: boolean };
-type Placed = { cx: number; cy: number; horiz: boolean; flip: boolean; tile: Tile };
+type Placed  = { cx: number; cy: number; horiz: boolean; flip: boolean; tile: Tile };
 
 const ROW_GAP = 12, TILE_GAP = 4;
 
-// tamaño de ficha derivado del fieltro (cap a 24 = tu tamaño actual)
 function unitForFelt(b: Rect): number {
-  const byW = ((b.w / 7) - TILE_GAP) / 2;   // >= 7 fichas por fila
-  const byH = ((b.h / 4) - ROW_GAP) / 2;    // <= 4 filas
+  const byW = ((b.w / 7) - TILE_GAP) / 2;
+  const byH = ((b.h / 4) - ROW_GAP) / 2;
   return Math.max(13, Math.min(24, Math.floor(Math.min(byW, byH))));
 }
 
-/**
- * Coloca la cadena serpenteando dentro de `b` (fieltro en px), anclada en la
- * ficha de salida (seq[i].salida) y creciendo hacia los dos extremos.
- * Devuelve, por ficha, centro + orientación + flip (compatible con drawTile).
- * flip para el caso horizontal-hacia-la-derecha reusa tu regla ya probada
- * (leftVal < rightVal). Los casos derivados (fila de vuelta y codos) salen del
- * mismo primitivo; si alguna ficha sale espejada, es el único punto a tocar.
- */
 function layoutSerpentine(seq: SeqItem[], b: Rect) {
   const U = unitForFelt(b), LONG = 2 * U, SHORT = U, rowPitch = LONG + ROW_GAP;
   const minX = b.x, maxX = b.x + b.w, cxc = b.x + b.w / 2, cyc = b.y + b.h / 2;
 
-  // pivote estable: ficha de salida → 6-6 → medio
   let p = seq.findIndex(s => s.salida);
   if (p < 0) p = seq.findIndex(s => s.doble && s.tile[0] === 6);
   if (p < 0) p = Math.floor(seq.length / 2);
@@ -84,21 +74,20 @@ function layoutSerpentine(seq: SeqItem[], b: Rect) {
     : { cx: cxc, cy: cyc, horiz: true, flip: pv.leftVal < pv.rightVal, tile: pv.tile };
   const pHalf = (pv.doble ? SHORT : LONG) / 2;
 
-  // camina un brazo desde el pivote hacia afuera
   const arm = (items: SeqItem[], inKey: 'left' | 'right',
-               startEdge: number, startDir: number, vSign: number): Placed[] => {
+    startEdge: number, startDir: number, vSign: number): Placed[] => {
     const out: Placed[] = [];
     let dir = startDir, y = cyc, edge = startEdge;
     for (const it of items) {
-      const inc  = inKey === 'left' ? it.leftVal : it.rightVal;   // conecta hacia el pivote
-      const outg = inKey === 'left' ? it.rightVal : it.leftVal;   // hacia afuera
+      const inc  = inKey === 'left' ? it.leftVal  : it.rightVal;
+      const outg = inKey === 'left' ? it.rightVal : it.leftVal;
       const foot = it.doble ? SHORT : LONG;
       const proj = edge + dir * (foot + TILE_GAP);
       const overflow = dir > 0 ? proj > maxX : proj < minX;
       if (overflow) {
-        // CODO: ficha vertical que gira de fila
-        const ccx = dir > 0 ? Math.min(edge + SHORT / 2, maxX - SHORT / 2)
-                            : Math.max(edge - SHORT / 2, minX + SHORT / 2);
+        const ccx = dir > 0
+          ? Math.min(edge + SHORT / 2, maxX - SHORT / 2)
+          : Math.max(edge - SHORT / 2, minX + SHORT / 2);
         const flip = it.doble ? false : (vSign > 0 ? inc > outg : outg > inc);
         out.push({ cx: ccx, cy: y + vSign * rowPitch / 2, horiz: false, flip, tile: it.tile });
         y += vSign * rowPitch; dir = -dir; edge = ccx + dir * (SHORT / 2 + TILE_GAP);
@@ -110,7 +99,7 @@ function layoutSerpentine(seq: SeqItem[], b: Rect) {
         edge = cx + dir * (SHORT / 2 + TILE_GAP);
       } else {
         const cx = edge + dir * (LONG / 2);
-        const sl = dir > 0 ? inc : outg, sr = dir > 0 ? outg : inc;   // valor visible izq/der
+        const sl = dir > 0 ? inc : outg, sr = dir > 0 ? outg : inc;
         out.push({ cx, cy: y, horiz: true, flip: sl < sr, tile: it.tile });
         edge = cx + dir * (LONG / 2 + TILE_GAP);
       }
@@ -118,11 +107,10 @@ function layoutSerpentine(seq: SeqItem[], b: Rect) {
     return out;
   };
 
-  const right = arm(seq.slice(p + 1), 'left',  cxc + pHalf + TILE_GAP, +1, +1); // der, serpentea abajo
-  const left  = arm(seq.slice(0, p).reverse(), 'right', cxc - pHalf - TILE_GAP, -1, -1); // izq, arriba
+  const right = arm(seq.slice(p + 1), 'left',  cxc + pHalf + TILE_GAP, +1, +1);
+  const left  = arm(seq.slice(0, p).reverse(), 'right', cxc - pHalf - TILE_GAP, -1, -1);
   const tiles = [...left.reverse(), pivot, ...right];
 
-  // bbox + auto-escala de seguridad (red final; con set doble-6 no se activa)
   let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
   for (const t of tiles) {
     const hw = (t.horiz ? LONG : SHORT) / 2, hh = (t.horiz ? SHORT : LONG) / 2;
@@ -130,7 +118,8 @@ function layoutSerpentine(seq: SeqItem[], b: Rect) {
     y0 = Math.min(y0, t.cy - hh); y1 = Math.max(y1, t.cy + hh);
   }
   let scale = 1;
-  if (x1 - x0 > b.w || y1 - y0 > b.h) scale = Math.min(b.w / (x1 - x0), b.h / (y1 - y0));
+  if (x1 - x0 > b.w || y1 - y0 > b.h)
+    scale = Math.min(b.w / (x1 - x0), b.h / (y1 - y0));
   return { tiles, unit: U, scale, cx0: (x0 + x1) / 2, cy0: (y0 + y1) / 2 };
 }
 
@@ -155,13 +144,13 @@ export default function Domino2D({
   gameState, myUserId, onPlay, onPass,
   mesa = 'club', setFichas = 'dibujito',
 }: Props) {
-  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const canvasRef   = useRef<HTMLCanvasElement>(null);
   const [choice, setChoice] = useState<{ tile: Tile } | null>(null);
-  const imgCache = useRef<Map<string, HTMLImageElement>>(new Map());
-  const hitBoxes = useRef<HitBox[]>([]);
-  const hoverIdx = useRef<number>(-1);
-  const hoverHalf = useRef<'top' | 'bottom' | null>(null);
-  const stateRef = useRef<GameState>(gameState);
+  const imgCache    = useRef<Map<string, HTMLImageElement>>(new Map());
+  const hitBoxes    = useRef<HitBox[]>([]);
+  const hoverIdx    = useRef<number>(-1);
+  const hoverHalf   = useRef<'top' | 'bottom' | null>(null);
+  const stateRef    = useRef<GameState>(gameState);
   useEffect(() => { stateRef.current = gameState; }, [gameState]);
 
   const getImg = useCallback((src: string, onLoad?: () => void): HTMLImageElement => {
@@ -175,19 +164,17 @@ export default function Domino2D({
     return img;
   }, []);
 
-  // qué lados del tablero aceptan esta ficha
   const ladosValidos = useCallback((tile: Tile): ('left' | 'right')[] => {
     const state = stateRef.current;
     if (!state) return [];
     const { leftEnd, rightEnd } = state;
     if (leftEnd === null && rightEnd === null) return ['right'];
     const s: ('left' | 'right')[] = [];
-    if (leftEnd !== null && (tile[0] === leftEnd || tile[1] === leftEnd)) s.push('left');
+    if (leftEnd  !== null && (tile[0] === leftEnd  || tile[1] === leftEnd))  s.push('left');
     if (rightEnd !== null && (tile[0] === rightEnd || tile[1] === rightEnd)) s.push('right');
     return s;
   }, []);
 
-  // secuencia orientada del tablero
   function buildOrientedSeq(board: PlayedTile[]) {
     const brd = [...board].sort((a, b) => a.order - b.order);
     const seq: SeqItem[] = [];
@@ -196,7 +183,6 @@ export default function Domino2D({
       const [t0, t1] = e.tile;
       const doble = t0 === t1;
       if (i === 0) {
-        // ficha de salida (order mínimo) → ancla estable del serpenteo
         seq.push({ tile: e.tile, doble, leftVal: t0, rightVal: t1, salida: true });
         lEnd = t0; rEnd = t1; return;
       }
@@ -254,13 +240,12 @@ export default function Domino2D({
       if (horiz) ctx.rotate(Math.PI / 2);
       if (flip) ctx.scale(1, -1);
       if (horiz) ctx.drawImage(img, -h / 2, -w / 2, h, w);
-      else ctx.drawImage(img, -w / 2, -h / 2, w, h);
+      else       ctx.drawImage(img, -w / 2, -h / 2, w, h);
       ctx.restore();
     } else {
       ctx.fillStyle = oculta ? '#3A2418' : '#F4E6C8';
       roundRect(ctx, x, y, w, h, 6); ctx.fill();
     }
-    // iluminado de media ficha (ficha vertical de la mano del viewer)
     if (hlHalf && !horiz) {
       const yy = hlHalf === 'top' ? y : y + h / 2;
       ctx.save();
@@ -275,18 +260,18 @@ export default function Domino2D({
     const seq = buildOrientedSeq(state.board);
     if (seq.length === 0) return;
 
-    // fieltro de la mesa en juego (px) → serpenteo centrado + bidireccional
     const fr = FIELTRO[mesa] ?? FIELTRO_DEFAULT;
     const bounds: Rect = { x: fr.x * W, y: fr.y * H, w: fr.w * W, h: fr.h * H };
     const { tiles, unit, scale, cx0, cy0 } = layoutSerpentine(seq, bounds);
     const L = 2 * unit, C = unit;
 
-    // (debug) descomenta para ver el borde del fieltro al calibrar:
-    // ctx.save(); ctx.strokeStyle = 'rgba(255,255,255,.5)';
-    // ctx.strokeRect(bounds.x, bounds.y, bounds.w, bounds.h); ctx.restore();
+    // (debug fieltro) — ACTIVO para esta ronda de calibración.
+    // Cuando el fieltro quede clavado, comenta estas 3 líneas.
+    ctx.save(); ctx.strokeStyle = 'rgba(255,255,255,.6)'; ctx.lineWidth = 2;
+    ctx.strokeRect(bounds.x, bounds.y, bounds.w, bounds.h); ctx.restore();
 
     ctx.save();
-    if (scale < 1) {                       // red de seguridad (con doble-6 no entra)
+    if (scale < 1) {
       ctx.translate(cx0, cy0); ctx.scale(scale, scale); ctx.translate(-cx0, -cy0);
     }
     for (const t of tiles) {
@@ -397,7 +382,7 @@ export default function Domino2D({
     const { leftEnd, rightEnd } = state;
     if (leftEnd !== rightEnd) {
       let side: 'left' | 'right' | null =
-        leftEnd === tappedNumber ? 'left' :
+        leftEnd  === tappedNumber ? 'left'  :
         rightEnd === tappedNumber ? 'right' : null;
       if (!side) {
         const otro = tile[0] === tappedNumber ? tile[1] : tile[0];
@@ -406,7 +391,6 @@ export default function Domino2D({
       if (side) return emitir(tile, side);
       return;
     }
-    // ambos extremos iguales → preguntar lado con botones
     setChoice({ tile });
   }
 
@@ -454,7 +438,6 @@ export default function Domino2D({
         style={{ width: '100%', display: 'block', borderRadius: 16,
           touchAction: 'manipulation', cursor: 'pointer' }} />
 
-      {/* Botón pasar turno */}
       {esMiTurno && (
         <div style={{ textAlign: 'center', marginTop: 8 }}>
           <button onClick={onPass}
@@ -466,7 +449,6 @@ export default function Domino2D({
         </div>
       )}
 
-      {/* Modal elegir lado (extremos iguales) */}
       {choice && (
         <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center',
           justifyContent: 'center', gap: 16, background: 'rgba(0,0,0,.45)', borderRadius: 16 }}>
