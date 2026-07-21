@@ -41,7 +41,7 @@ function fichaSrc(set: string, a: number, b: number) {
   return `/fichas/${set}/${lo}-${hi}.webp`
 }
 function dorsoSrc(set: string) { return `/fichas/${set}/dorso.webp` }
-function mesaSrc(mesa: string) { return `/mesas/mesa-${mesa}.png` }
+function mesaSrc(mesa: string) { return `/mesas/mesa-${mesa}.jpg` }
 
 function roundRect(
   ctx: CanvasRenderingContext2D,
