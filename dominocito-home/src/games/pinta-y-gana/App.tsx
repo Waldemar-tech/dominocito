@@ -977,10 +977,10 @@ export default function App() {
 
                   {/* Input monto */}
                   <div
-                    className="rounded-xl px-3 py-2 mb-2 flex items-center justify-center"
+                    className="rounded-lg px-2 py-1 mb-2 flex items-center justify-center"
                     style={{ background: 'rgba(20, 10, 5, 0.85)' }}
                   >
-                    <span className="font-black text-xl" style={{ color: 'var(--cream-soft)', fontFamily: 'monospace' }}>
+                    <span className="font-black" style={{ fontSize: '13px', color: 'var(--cream-soft)', fontFamily: 'monospace' }}>
                       {(betAmount * 1000).toLocaleString('es-VE', { maximumFractionDigits: 0 })}
                     </span>
                   </div>
