@@ -33,20 +33,11 @@ const TEAMS: Record<number, { nombre: string; color: string }> = {
   1: { nombre: 'Rojo', color: '#e06a45' },
 };
 
-// ---------------------------------------------------------------------------
-// Serpenteo del tablero (forma de U, centrado, bidireccional desde la salida)
-// Se ata al FIELTRO (zona de juego), no al canvas => nunca invade las manos.
-// ---------------------------------------------------------------------------
 type Rect = { x: number; y: number; w: number; h: number };
 
-// Fieltro en coords normalizadas 0–1 sobre el canvas 640×640. Las manos ocupan
-// arriba/abajo/lados (posición fija, no depende de la mesa), así que este rect
-// las evita y sirve para las 5 mesas.
-// ⚠ AFINA por mesa con calibrador_mesas.html si el fieltro visual de alguna
-// .jpg es más chico; agrega la clave en FIELTRO para sobreescribir el default.
 const FIELTRO_DEFAULT: Rect = { x: 0.21, y: 0.21, w: 0.58, h: 0.58 };
 const FIELTRO: Record<string, Rect> = {
-  // club: { x: .., y: .., w: .., h: .. }, // override opcional por mesa
+  // club: { x: .., y: .., w: .., h: .. },
 };
 
 type SeqItem = { tile: Tile; doble: boolean; leftVal: number; rightVal: number; salida?: boolean };
@@ -144,13 +135,13 @@ export default function Domino2D({
   gameState, myUserId, onPlay, onPass,
   mesa = 'club', setFichas = 'dibujito',
 }: Props) {
-  const canvasRef   = useRef<HTMLCanvasElement>(null);
+  const canvasRef  = useRef<HTMLCanvasElement>(null);
   const [choice, setChoice] = useState<{ tile: Tile } | null>(null);
-  const imgCache    = useRef<Map<string, HTMLImageElement>>(new Map());
-  const hitBoxes    = useRef<HitBox[]>([]);
-  const hoverIdx    = useRef<number>(-1);
-  const hoverHalf   = useRef<'top' | 'bottom' | null>(null);
-  const stateRef    = useRef<GameState>(gameState);
+  const imgCache   = useRef<Map<string, HTMLImageElement>>(new Map());
+  const hitBoxes   = useRef<HitBox[]>([]);
+  const hoverIdx   = useRef<number>(-1);
+  const hoverHalf  = useRef<'top' | 'bottom' | null>(null);
+  const stateRef   = useRef<GameState>(gameState);
   useEffect(() => { stateRef.current = gameState; }, [gameState]);
 
   const getImg = useCallback((src: string, onLoad?: () => void): HTMLImageElement => {
@@ -262,12 +253,9 @@ export default function Domino2D({
 
     const fr = FIELTRO[mesa] ?? FIELTRO_DEFAULT;
     const bounds: Rect = { x: fr.x * W, y: fr.y * H, w: fr.w * W, h: fr.h * H };
-    // (debug fieltro) — ACTIVO para esta ronda de calibración. Se dibuja aunque
-    // la mesa esté vacía. Cuando el fieltro quede clavado, comenta estas 3 líneas.
-    ctx.save(); ctx.strokeStyle = 'rgba(255,255,255,.6)'; ctx.lineWidth = 2;
-    ctx.strokeRect(bounds.x, bounds.y, bounds.w, bounds.h); ctx.restore();
-
-    if (seq.length === 0) return;
+    // (debug fieltro) — descomentar SOLO para recalibrar el rect del fieltro:
+    // ctx.save(); ctx.strokeStyle = 'rgba(255,255,255,.6)'; ctx.lineWidth = 2;
+    // ctx.strokeRect(bounds.x, bounds.y, bounds.w, bounds.h); ctx.restore();
 
     const { tiles, unit, scale, cx0, cy0 } = layoutSerpentine(seq, bounds);
     const L = 2 * unit, C = unit;
@@ -434,7 +422,7 @@ export default function Domino2D({
   const esMiTurno = me && state?.currentTurn === me.position;
 
   return (
-    <div style={{ position: 'relative', width: '100%', maxWidth: 560, margin: '0 auto' }}>
+    <div style={{ position: 'relative', width: '100%', maxWidth: 760, margin: '0 auto' }}>
       <canvas ref={canvasRef} width={640} height={640}
         onClick={onPointer} onTouchStart={onPointer} onMouseMove={onMove}
         style={{ width: '100%', display: 'block', borderRadius: 16,
