@@ -26,12 +26,15 @@ function RouteFallback() {
  * para que el contenido no quede tapado por el navbar flotante.
  */
 function GlobalFrame({ children }: { children: React.ReactNode }) {
+  const location = useLocation();
+  const hiddenRoutes = ['/pinta-y-gana'];
+  const hideBar = hiddenRoutes.some(r => location.pathname.startsWith(r));
   return (
     <>
-      <GameLogosBar />
+      {!hideBar && <GameLogosBar />}
       <div>{children}</div>
     </>
-  )
+  );
 }
 
 export default function App() {
