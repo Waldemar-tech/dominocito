@@ -926,97 +926,140 @@ export default function App() {
                     boxShadow: '0 8px 24px rgba(0, 0, 0, 0.25)',
                   }}
                 >
-                  {/* Pills montos rápidos */}
-                  <div className="flex items-center justify-center gap-1.5 mb-2">
+                  {/* FILA 1: +0.25 | +0.5 | — 1,234 + | +1 | ALL IN */}
+                  <div className="flex items-center gap-2 mb-3">
+                    {/* Pill +0.25 */}
                     <button
-                      onClick={() => setBetAmount(Math.max(0.25, betAmount - 0.25))}
-                      className="w-6 h-6 rounded-full font-black text-sm transition-all hover:scale-110"
-                      style={{ background: 'var(--walnut)', color: 'var(--cream-soft)', border: 'none', cursor: 'pointer' }}
+                      onClick={() => setBetAmount(0.25)}
+                      className="flex-1 py-2 rounded-full font-black text-xs transition-all hover:scale-105"
+                      style={{
+                        background: betAmount === 0.25 ? 'var(--coral)' : 'var(--leather)',
+                        color: 'var(--cream-soft)', border: 'none', cursor: 'pointer',
+                      }}
+                    >+0.25</button>
+
+                    {/* Pill +0.5 */}
+                    <button
+                      onClick={() => setBetAmount(0.5)}
+                      className="flex-1 py-2 rounded-full font-black text-xs transition-all hover:scale-105"
+                      style={{
+                        background: betAmount === 0.5 ? 'var(--coral)' : 'var(--leather)',
+                        color: 'var(--cream-soft)', border: 'none', cursor: 'pointer',
+                      }}
+                    >+0.5</button>
+
+                    {/* Input oscuro — 1,234 + */}
+                    <div
+                      className="flex items-center gap-2 px-3 py-2 rounded-full"
+                      style={{ background: 'var(--black)', flex: '2' }}
                     >
-                      −
-                    </button>
-                    <div className="flex gap-1">
-                      {[0.25, 0.5, 1].map(v => (
-                        <button
-                          key={v}
-                          onClick={() => setBetAmount(v)}
-                          className="px-2 py-1 rounded-full font-black transition-all"
-                          style={{
-                            fontSize: '10px',
-                            background: betAmount === v ? 'var(--coral)' : 'rgba(58, 36, 24, 0.08)',
-                            color: betAmount === v ? 'white' : 'var(--walnut)',
-                            border: 'none',
-                            cursor: 'pointer',
-                          }}
-                        >
-                          +{v}
-                        </button>
-                      ))}
                       <button
-                        onClick={() => setBetAmount(wallet.balance)}
-                        className="px-2 py-1 rounded-full font-black transition-all"
-                        style={{
-                          fontSize: '10px',
-                          background: 'rgba(58, 36, 24, 0.08)',
-                          color: 'var(--walnut)',
-                          border: 'none',
-                          cursor: 'pointer',
-                        }}
+                        onClick={() => setBetAmount(Math.max(0.25, betAmount - 0.25))}
+                        className="font-black text-sm"
+                        style={{ background: 'none', border: 'none', color: 'var(--cream-soft)', cursor: 'pointer' }}
+                      >−</button>
+                      <span
+                        className="flex-1 text-center font-black text-sm"
+                        style={{ color: 'var(--cream-soft)', fontFamily: 'monospace' }}
                       >
-                        ALL IN
-                      </button>
+                        {(betAmount * 1000).toLocaleString('es-VE', { maximumFractionDigits: 0 })}
+                      </span>
+                      <button
+                        onClick={() => setBetAmount(Math.min(25, betAmount + 0.25))}
+                        className="font-black text-sm"
+                        style={{ background: 'none', border: 'none', color: 'var(--cream-soft)', cursor: 'pointer' }}
+                      >+</button>
                     </div>
+
+                    {/* Pill +1 */}
                     <button
-                      onClick={() => setBetAmount(Math.min(25, betAmount + 0.25))}
-                      className="w-6 h-6 rounded-full font-black text-sm transition-all hover:scale-110"
-                      style={{ background: 'var(--walnut)', color: 'var(--cream-soft)', border: 'none', cursor: 'pointer' }}
+                      onClick={() => setBetAmount(1)}
+                      className="flex-1 py-2 rounded-full font-black text-xs transition-all hover:scale-105"
+                      style={{
+                        background: betAmount === 1 ? 'var(--coral)' : 'var(--leather)',
+                        color: 'var(--cream-soft)', border: 'none', cursor: 'pointer',
+                      }}
+                    >+1</button>
+
+                    {/* Pill ALL IN */}
+                    <button
+                      onClick={() => setBetAmount(wallet.balance)}
+                      className="flex-1 py-2 rounded-full font-black text-xs transition-all hover:scale-105"
+                      style={{
+                        background: 'var(--leather)',
+                        color: 'var(--cream-soft)', border: 'none', cursor: 'pointer',
+                      }}
+                    >ALL IN</button>
+                  </div>
+
+                  {/* FILA 2: 📊 ↺ | APOSTAR | 2x ↻ */}
+                  <div className="flex items-center gap-3 mb-3">
+                    {/* Iconos izquierda */}
+                    <div className="flex items-center gap-1">
+                      <button
+                        className="w-8 h-8 rounded-full flex items-center justify-center text-base transition-transform hover:scale-110"
+                        style={{ background: 'transparent', border: 'none', cursor: 'pointer', color: 'var(--walnut)' }}
+                        title="Estadísticas"
+                      >📊</button>
+                      <button
+                        className="w-8 h-8 rounded-full flex items-center justify-center text-base transition-transform hover:scale-110"
+                        style={{ background: 'transparent', border: 'none', cursor: 'pointer', color: 'var(--walnut)' }}
+                        title="Deshacer"
+                      >↺</button>
+                    </div>
+
+                    {/* Botón APOSTAR */}
+                    <button
+                      onClick={handleApostar}
+                      disabled={selectedId === null}
+                      className="flex-1 py-3 rounded-full font-black text-sm transition-all"
+                      style={{
+                        background: selectedId !== null ? '#22c55e' : 'rgba(58, 36, 24, 0.15)',
+                        color: selectedId !== null ? 'white' : 'var(--walnut)',
+                        cursor: selectedId !== null ? 'pointer' : 'not-allowed',
+                        boxShadow: selectedId !== null ? '0 6px 20px rgba(34, 197, 94, 0.5)' : 'none',
+                        border: 'none',
+                        letterSpacing: '0.08em',
+                      }}
                     >
-                      +
+                      {selectedId !== null ? 'APOSTAR' : 'SELECCIONA UNA PIEDRA'}
                     </button>
+
+                    {/* Iconos derecha */}
+                    <div className="flex items-center gap-1">
+                      <span className="font-black text-xs" style={{ color: 'var(--walnut)' }}>2x</span>
+                      <button
+                        className="w-8 h-8 rounded-full flex items-center justify-center text-base transition-transform hover:scale-110"
+                        style={{ background: 'transparent', border: 'none', cursor: 'pointer', color: 'var(--walnut)' }}
+                        title="Duplicar"
+                      >↻</button>
+                    </div>
                   </div>
 
-                  {/* Input monto */}
+                  {/* FILA 3: Jugada Seleccionada */}
                   <div
-                    className="rounded-lg px-2 py-1 mb-2 flex items-center justify-center"
-                    style={{ background: 'rgba(20, 10, 5, 0.85)' }}
-                  >
-                    <span className="font-black" style={{ fontSize: '13px', color: 'var(--cream-soft)', fontFamily: 'monospace' }}>
-                      {(betAmount * 1000).toLocaleString('es-VE', { maximumFractionDigits: 0 })}
-                    </span>
-                  </div>
-
-                  {/* Botón APOSTAR verde */}
-                  <button
-                    onClick={handleApostar}
-                    disabled={selectedId === null}
-                    className="w-full py-2.5 rounded-xl font-black transition-all mb-2"
-                    style={{
-                      fontSize: '13px',
-                      background: selectedId !== null ? '#22c55e' : 'rgba(58, 36, 24, 0.15)',
-                      color: selectedId !== null ? 'white' : 'var(--walnut)',
-                      cursor: selectedId !== null ? 'pointer' : 'not-allowed',
-                      boxShadow: selectedId !== null ? '0 4px 14px rgba(34, 197, 94, 0.4)' : 'none',
-                      border: 'none',
-                      letterSpacing: '0.05em',
-                    }}
-                  >
-                    {selectedId !== null ? `APOSTAR` : 'SELECCIONA UNA PIEDRA'}
-                  </button>
-
-                  {/* Card Jugada Seleccionada */}
-                  <div
-                    className="rounded-xl px-3 py-2 flex items-center justify-between"
+                    className="rounded-2xl px-4 py-3 flex items-center justify-between"
                     style={{ background: 'var(--walnut)' }}
                   >
-                    <span style={{ fontSize: '10px', fontWeight: 700, color: 'var(--cream-soft)' }}>
-                      Jugada seleccionada
-                    </span>
-                    <span
-                      className="font-black text-sm"
-                      style={{ color: selectedId !== null ? 'var(--coral)' : 'rgba(245, 230, 211, 0.3)' }}
+                    <div>
+                      <div style={{ fontSize: '12px', fontWeight: 700, color: 'var(--cream-soft)' }}>Jugada</div>
+                      <div style={{ fontSize: '12px', fontWeight: 700, color: 'var(--cream-soft)' }}>Seleccionada</div>
+                    </div>
+                    <div
+                      className="rounded-xl"
+                      style={{
+                        width: '80px', height: '48px',
+                        background: selectedId !== null ? 'transparent' : 'var(--cream-soft)',
+                        display: 'flex', alignItems: 'center', justifyContent: 'center',
+                        border: selectedId !== null ? '2px solid var(--coral)' : 'none',
+                      }}
                     >
-                      {selectedId !== null ? DOMINOES[selectedId].label : '— —'}
-                    </span>
+                      {selectedId !== null && (
+                        <span className="font-black text-sm" style={{ color: 'var(--coral)' }}>
+                          {DOMINOES[selectedId].label}
+                        </span>
+                      )}
+                    </div>
                   </div>
 
                   {message && (
