@@ -919,11 +919,12 @@ export default function App() {
             {sorteo.status === 'open' && !apuestasCerradas && (
               <div className="relative" style={{ marginTop: '12px' }}>
                 <div
-                  className="rounded-3xl p-7"
+                  className="rounded-3xl"
                   style={{
                     background: 'var(--cream-soft)',
                     color: 'var(--walnut)',
                     boxShadow: '0 8px 24px rgba(0, 0, 0, 0.25)',
+                    padding: '32px',
                   }}
                 >
                   {/* FILA 1: +0.25 | +0.5 | — 1,234 + | +1 | ALL IN */}
