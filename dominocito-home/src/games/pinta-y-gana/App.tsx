@@ -817,7 +817,7 @@ export default function App() {
         <div className="pinta-layout-2col">
 
           {/* ────────────── CARD IZQUIERDA ────────────── */}
-          <div className="flex flex-col gap-5">
+          <div className="flex flex-col gap-7">
             {/* Card Próximo Sorteo */}
             <div className="relative">
               {/* Etiqueta pill sobresaliendo */}
@@ -1128,8 +1128,14 @@ export default function App() {
                 </div>
               )}
               <div
-                className="grid gap-3 justify-center"
-                style={{ gridTemplateColumns: 'repeat(7, minmax(0, 1fr))', rowGap: '12px' }}
+                style={{
+                  display: 'grid',
+                  gridTemplateColumns: 'repeat(7, 64px)',
+                  gap: '12px',
+                  justifyContent: 'center',
+                  overflowX: 'auto',
+                  padding: '0 8px',
+                }}
               >
                 {DOMINOES.map(d => (
                   <DominoTile

@@ -106,7 +106,7 @@ export default function DominoTile({
     ? 'linear-gradient(160deg, #FAF1DE, #E8DBC0)'
     : 'linear-gradient(160deg, #7A4520, #4A2610)';
 
-  const tileSize = 56;
+  const tileSize = 64;
 
   return (
     <button
