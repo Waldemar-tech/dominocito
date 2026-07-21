@@ -814,7 +814,7 @@ export default function App() {
         )}
 
         {/* ── LAYOUT DE 2 CARDS (35% izquierda + 65% derecha) ───────────── */}
-        <div className="grid grid-cols-1 lg:grid-cols-[35%_65%] gap-5 mb-5">
+        <div className="pinta-layout-2col">
 
           {/* ────────────── CARD IZQUIERDA ────────────── */}
           <div className="flex flex-col gap-5">
