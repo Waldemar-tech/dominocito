@@ -33,6 +33,107 @@ const TEAMS: Record<number, { nombre: string; color: string }> = {
   1: { nombre: 'Rojo', color: '#e06a45' },
 };
 
+// ---------------------------------------------------------------------------
+//  Serpenteo del tablero (forma de U, centrado, bidireccional desde la salida)
+//  Se ata al FIELTRO (zona de juego), no al canvas => nunca invade las manos.
+// ---------------------------------------------------------------------------
+type Rect = { x: number; y: number; w: number; h: number };
+
+// Fieltro en coords normalizadas 0–1 sobre el canvas 640×640. Las manos ocupan
+// arriba/abajo/lados (posición fija, no depende de la mesa), así que este rect
+// las evita y sirve para las 5 mesas.
+// ⚠ AFINA por mesa con calibrador_mesas.html si el fieltro visual de alguna
+//   .jpg es más chico; agrega la clave en FIELTRO para sobreescribir el default.
+const FIELTRO_DEFAULT: Rect = { x: 0.1125, y: 0.115, w: 0.775, h: 0.665 };
+const FIELTRO: Record<string, Rect> = {
+  // club: { x: .., y: .., w: .., h: .. },   // override opcional por mesa
+};
+
+type SeqItem = { tile: Tile; doble: boolean; leftVal: number; rightVal: number; salida?: boolean };
+type Placed = { cx: number; cy: number; horiz: boolean; flip: boolean; tile: Tile };
+
+const ROW_GAP = 12, TILE_GAP = 4;
+
+// tamaño de ficha derivado del fieltro (cap a 24 = tu tamaño actual)
+function unitForFelt(b: Rect): number {
+  const byW = ((b.w / 7) - TILE_GAP) / 2;   // >= 7 fichas por fila
+  const byH = ((b.h / 4) - ROW_GAP) / 2;    // <= 4 filas
+  return Math.max(13, Math.min(24, Math.floor(Math.min(byW, byH))));
+}
+
+/**
+ * Coloca la cadena serpenteando dentro de `b` (fieltro en px), anclada en la
+ * ficha de salida (seq[i].salida) y creciendo hacia los dos extremos.
+ * Devuelve, por ficha, centro + orientación + flip (compatible con drawTile).
+ * flip para el caso horizontal-hacia-la-derecha reusa tu regla ya probada
+ * (leftVal < rightVal). Los casos derivados (fila de vuelta y codos) salen del
+ * mismo primitivo; si alguna ficha sale espejada, es el único punto a tocar.
+ */
+function layoutSerpentine(seq: SeqItem[], b: Rect) {
+  const U = unitForFelt(b), LONG = 2 * U, SHORT = U, rowPitch = LONG + ROW_GAP;
+  const minX = b.x, maxX = b.x + b.w, cxc = b.x + b.w / 2, cyc = b.y + b.h / 2;
+
+  // pivote estable: ficha de salida → 6-6 → medio
+  let p = seq.findIndex(s => s.salida);
+  if (p < 0) p = seq.findIndex(s => s.doble && s.tile[0] === 6);
+  if (p < 0) p = Math.floor(seq.length / 2);
+
+  const pv = seq[p];
+  const pivot: Placed = pv.doble
+    ? { cx: cxc, cy: cyc, horiz: false, flip: false, tile: pv.tile }
+    : { cx: cxc, cy: cyc, horiz: true, flip: pv.leftVal < pv.rightVal, tile: pv.tile };
+  const pHalf = (pv.doble ? SHORT : LONG) / 2;
+
+  // camina un brazo desde el pivote hacia afuera
+  const arm = (items: SeqItem[], inKey: 'left' | 'right',
+               startEdge: number, startDir: number, vSign: number): Placed[] => {
+    const out: Placed[] = [];
+    let dir = startDir, y = cyc, edge = startEdge;
+    for (const it of items) {
+      const inc  = inKey === 'left' ? it.leftVal : it.rightVal;   // conecta hacia el pivote
+      const outg = inKey === 'left' ? it.rightVal : it.leftVal;   // hacia afuera
+      const foot = it.doble ? SHORT : LONG;
+      const proj = edge + dir * (foot + TILE_GAP);
+      const overflow = dir > 0 ? proj > maxX : proj < minX;
+      if (overflow) {
+        // CODO: ficha vertical que gira de fila
+        const ccx = dir > 0 ? Math.min(edge + SHORT / 2, maxX - SHORT / 2)
+                            : Math.max(edge - SHORT / 2, minX + SHORT / 2);
+        const flip = it.doble ? false : (vSign > 0 ? inc > outg : outg > inc);
+        out.push({ cx: ccx, cy: y + vSign * rowPitch / 2, horiz: false, flip, tile: it.tile });
+        y += vSign * rowPitch; dir = -dir; edge = ccx + dir * (SHORT / 2 + TILE_GAP);
+        continue;
+      }
+      if (it.doble) {
+        const cx = edge + dir * (SHORT / 2);
+        out.push({ cx, cy: y, horiz: false, flip: false, tile: it.tile });
+        edge = cx + dir * (SHORT / 2 + TILE_GAP);
+      } else {
+        const cx = edge + dir * (LONG / 2);
+        const sl = dir > 0 ? inc : outg, sr = dir > 0 ? outg : inc;   // valor visible izq/der
+        out.push({ cx, cy: y, horiz: true, flip: sl < sr, tile: it.tile });
+        edge = cx + dir * (LONG / 2 + TILE_GAP);
+      }
+    }
+    return out;
+  };
+
+  const right = arm(seq.slice(p + 1), 'left',  cxc + pHalf + TILE_GAP, +1, +1); // der, serpentea abajo
+  const left  = arm(seq.slice(0, p).reverse(), 'right', cxc - pHalf - TILE_GAP, -1, -1); // izq, arriba
+  const tiles = [...left.reverse(), pivot, ...right];
+
+  // bbox + auto-escala de seguridad (red final; con set doble-6 no se activa)
+  let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
+  for (const t of tiles) {
+    const hw = (t.horiz ? LONG : SHORT) / 2, hh = (t.horiz ? SHORT : LONG) / 2;
+    x0 = Math.min(x0, t.cx - hw); x1 = Math.max(x1, t.cx + hw);
+    y0 = Math.min(y0, t.cy - hh); y1 = Math.max(y1, t.cy + hh);
+  }
+  let scale = 1;
+  if (x1 - x0 > b.w || y1 - y0 > b.h) scale = Math.min(b.w / (x1 - x0), b.h / (y1 - y0));
+  return { tiles, unit: U, scale, cx0: (x0 + x1) / 2, cy0: (y0 + y1) / 2 };
+}
+
 function fichaSrc(set: string, a: number, b: number) {
   const lo = Math.min(a, b), hi = Math.max(a, b);
   return `/fichas/${set}/${lo}-${hi}.webp`;
@@ -89,13 +190,14 @@ export default function Domino2D({
   // secuencia orientada del tablero
   function buildOrientedSeq(board: PlayedTile[]) {
     const brd = [...board].sort((a, b) => a.order - b.order);
-    const seq: { tile: Tile; doble: boolean; leftVal: number; rightVal: number }[] = [];
+    const seq: SeqItem[] = [];
     let lEnd: number | null = null, rEnd: number | null = null;
     brd.forEach((e, i) => {
       const [t0, t1] = e.tile;
       const doble = t0 === t1;
       if (i === 0) {
-        seq.push({ tile: e.tile, doble, leftVal: t0, rightVal: t1 });
+        // ficha de salida (order mínimo) → ancla estable del serpenteo
+        seq.push({ tile: e.tile, doble, leftVal: t0, rightVal: t1, salida: true });
         lEnd = t0; rEnd = t1; return;
       }
       if (e.side === 'right') {
@@ -172,19 +274,26 @@ export default function Domino2D({
   function drawBoard(ctx: CanvasRenderingContext2D, W: number, H: number, state: GameState) {
     const seq = buildOrientedSeq(state.board);
     if (seq.length === 0) return;
-    const L = 48, C = 24;
-    let tot = 0; seq.forEach(s => (tot += (s.doble ? C : L) + 4));
-    let x = (W - tot) / 2; const y = H / 2 - C / 2;
-    for (const s of seq) {
-      if (s.doble) {
-        drawTile(ctx, x, y - C / 2, L, C, false, s.tile, false, false);
-        x += C + 4;
-      } else {
-        const flip = s.leftVal < s.rightVal;
-        drawTile(ctx, x, y, L, C, true, s.tile, false, flip);
-        x += L + 4;
-      }
+
+    // fieltro de la mesa en juego (px) → serpenteo centrado + bidireccional
+    const fr = FIELTRO[mesa] ?? FIELTRO_DEFAULT;
+    const bounds: Rect = { x: fr.x * W, y: fr.y * H, w: fr.w * W, h: fr.h * H };
+    const { tiles, unit, scale, cx0, cy0 } = layoutSerpentine(seq, bounds);
+    const L = 2 * unit, C = unit;
+
+    // (debug) descomenta para ver el borde del fieltro al calibrar:
+    // ctx.save(); ctx.strokeStyle = 'rgba(255,255,255,.5)';
+    // ctx.strokeRect(bounds.x, bounds.y, bounds.w, bounds.h); ctx.restore();
+
+    ctx.save();
+    if (scale < 1) {                       // red de seguridad (con doble-6 no entra)
+      ctx.translate(cx0, cy0); ctx.scale(scale, scale); ctx.translate(-cx0, -cy0);
     }
+    for (const t of tiles) {
+      if (t.horiz) drawTile(ctx, t.cx - L / 2, t.cy - C / 2, L, C, true,  t.tile, false, t.flip);
+      else         drawTile(ctx, t.cx - C / 2, t.cy - L / 2, L, C, false, t.tile, false, t.flip);
+    }
+    ctx.restore();
   }
 
   function drawHand(
