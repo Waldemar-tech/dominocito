@@ -917,7 +917,7 @@ export default function App() {
 
             {/* Card Controles de apuesta */}
             {sorteo.status === 'open' && !apuestasCerradas && (
-              <div className="relative">
+              <div className="relative" style={{ marginTop: '12px' }}>
                 <div
                   className="rounded-3xl p-5"
                   style={{
@@ -1107,8 +1107,8 @@ export default function App() {
             <div
               className="rounded-3xl p-5 pt-7"
               style={{
-                background: 'var(--cream-soft)',
-                boxShadow: '0 8px 24px rgba(0, 0, 0, 0.25)',
+                background: 'var(--walnut)',
+                boxShadow: '0 8px 24px rgba(0, 0, 0, 0.45)',
               }}
             >
               {sorteo.status === 'revealed' && selectedX100 !== null && selectedX50 !== null && mults && (
@@ -1131,10 +1131,9 @@ export default function App() {
                 style={{
                   display: 'grid',
                   gridTemplateColumns: 'repeat(7, 64px)',
-                  gap: '12px',
+                  gap: '10px',
                   justifyContent: 'center',
-                  overflowX: 'auto',
-                  padding: '0 8px',
+                  padding: '8px 4px',
                 }}
               >
                 {DOMINOES.map(d => (
