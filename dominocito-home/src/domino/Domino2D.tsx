@@ -1,418 +1,384 @@
-// Domino2D.tsx — Render 2D del dominó
-// Recibe la misma interfaz que Domino33: gameState, myUserId, onPlay, onPass
-// Fichas: /fichas/dibujito/{lo}-{hi}.webp + dorso.webp
-// Mesas:  /mesas/mesa-{nombre}.webp
+// Domino2D.tsx — Render 2D del dominó (reemplaza a Devil33)
+// Arreglo 1: orientación correcta de fichas en mesa (flip según la punta que conecta)
+// Arreglo 2: elegir extremo tocando la mitad de tu ficha (estilo Devil33)
+// Interfaz: onPlay(tile, side) / onPass() — igual que Domino33
 
-import { useEffect, useRef, useCallback } from 'react'
+import { useEffect, useRef, useState, useCallback } from 'react';
 
-type Tile = [number, number]
-const HIDDEN: Tile = [-1, -1]
+type Tile = [number, number];
+const HIDDEN_A = -1;
 
+interface PlayedTile { tile: Tile; userId: number; side: 'left' | 'right'; order: number; }
+interface PlayerState {
+  userId: number; username: string; position: number;
+  team: 0 | 1 | null; hand: Tile[]; connected: boolean;
+}
 interface GameState {
-  roomId: number
-  status: string
-  players: any[]
-  currentTurn: number
-  board: any[]
-  leftEnd: number | null
-  rightEnd: number | null
-  passesInRow: number
-  winnerPosition: number | null
-  winType: string | null
-  scores: Record<number, number>
-  moveCount: number
+  status: string; currentTurn: number;
+  leftEnd: number | null; rightEnd: number | null;
+  players: PlayerState[]; board: PlayedTile[];
+  scores?: Record<number, number>;
 }
 
-interface HitBox {
-  x: number; y: number; w: number; h: number; tile: Tile
-}
+const MESAS: Record<string, string> = {
+  club:    '/mesas/mesa-club.jpg',
+  clasica: '/mesas/mesa-clasica.jpg',
+  playa:   '/mesas/mesa-playa.jpg',
+  abuela:  '/mesas/mesa-abuela.jpg',
+  oficina: '/mesas/mesa-oficina.jpg',
+};
 
-interface Props {
-  gameState: GameState
-  myUserId: number
-  onPlay: (tile: Tile, side: 'left' | 'right') => void
-  onPass: () => void
-  mesa?: string
-  setFichas?: string
-}
+const TEAMS: Record<number, { nombre: string; color: string }> = {
+  0: { nombre: 'Azul', color: '#4a90d9' },
+  1: { nombre: 'Rojo', color: '#e06a45' },
+};
 
 function fichaSrc(set: string, a: number, b: number) {
-  const lo = Math.min(a, b), hi = Math.max(a, b)
-  return `/fichas/${set}/${lo}-${hi}.webp`
+  const lo = Math.min(a, b), hi = Math.max(a, b);
+  return `/fichas/${set}/${lo}-${hi}.webp`;
 }
-function dorsoSrc(set: string) { return `/fichas/${set}/dorso.webp` }
-function mesaSrc(mesa: string) { return `/mesas/mesa-${mesa}.jpg` }
+function dorsoSrc(set: string) { return `/fichas/${set}/dorso.webp`; }
 
-function roundRect(
-  ctx: CanvasRenderingContext2D,
-  x: number, y: number, w: number, h: number, r: number
-) {
-  ctx.beginPath()
-  ctx.moveTo(x + r, y)
-  ctx.arcTo(x + w, y, x + w, y + h, r)
-  ctx.arcTo(x + w, y + h, x, y + h, r)
-  ctx.arcTo(x, y + h, x, y, r)
-  ctx.arcTo(x, y, x + w, y, r)
-  ctx.closePath()
+interface HitBox { x: number; y: number; w: number; h: number; tile: Tile; ty: number; th: number; }
+
+interface Props {
+  gameState: GameState;
+  myUserId: number;
+  onPlay: (tile: Tile, side: 'left' | 'right') => void;
+  onPass: () => void;
+  mesa?: string;
+  setFichas?: string;
 }
 
 export default function Domino2D({
-  gameState,
-  myUserId,
-  onPlay,
-  onPass,
-  mesa = 'club',
-  setFichas = 'dibujito',
+  gameState, myUserId, onPlay, onPass,
+  mesa = 'club', setFichas = 'dibujito',
 }: Props) {
-  const canvasRef = useRef<HTMLCanvasElement>(null)
-  const imgCache = useRef<Map<string, HTMLImageElement>>(new Map())
-  const hitBoxes = useRef<HitBox[]>([])
-  const hoverIdx = useRef<number>(-1)
-  const stateRef = useRef<GameState>(gameState)
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const [choice, setChoice] = useState<{ tile: Tile } | null>(null);
+  const imgCache = useRef<Map<string, HTMLImageElement>>(new Map());
+  const hitBoxes = useRef<HitBox[]>([]);
+  const hoverIdx = useRef<number>(-1);
+  const hoverHalf = useRef<'top' | 'bottom' | null>(null);
+  const stateRef = useRef<GameState>(gameState);
+  useEffect(() => { stateRef.current = gameState; }, [gameState]);
 
-  // Mantener ref actualizada para callbacks
-  useEffect(() => { stateRef.current = gameState }, [gameState])
-
-  // ── Cache de imágenes ─────────────────────────────────────────────
   const getImg = useCallback((src: string, onLoad?: () => void): HTMLImageElement => {
-    let img = imgCache.current.get(src)
+    let img = imgCache.current.get(src);
     if (!img) {
-      img = new Image()
-      img.onload = () => { onLoad?.() }
-      img.src = src
-      imgCache.current.set(src, img)
+      img = new Image();
+      img.onload = () => { onLoad?.(); };
+      img.src = src;
+      imgCache.current.set(src, img);
     }
-    return img
-  }, [])
+    return img;
+  }, []);
 
-  // ── Dibujo principal ──────────────────────────────────────────────
+  // qué lados del tablero aceptan esta ficha
+  const ladosValidos = useCallback((tile: Tile): ('left' | 'right')[] => {
+    const state = stateRef.current;
+    if (!state) return [];
+    const { leftEnd, rightEnd } = state;
+    if (leftEnd === null && rightEnd === null) return ['right'];
+    const s: ('left' | 'right')[] = [];
+    if (leftEnd !== null && (tile[0] === leftEnd || tile[1] === leftEnd)) s.push('left');
+    if (rightEnd !== null && (tile[0] === rightEnd || tile[1] === rightEnd)) s.push('right');
+    return s;
+  }, []);
+
+  // secuencia orientada del tablero
+  function buildOrientedSeq(board: PlayedTile[]) {
+    const brd = [...board].sort((a, b) => a.order - b.order);
+    const seq: { tile: Tile; doble: boolean; leftVal: number; rightVal: number }[] = [];
+    let lEnd: number | null = null, rEnd: number | null = null;
+    brd.forEach((e, i) => {
+      const [t0, t1] = e.tile;
+      const doble = t0 === t1;
+      if (i === 0) {
+        seq.push({ tile: e.tile, doble, leftVal: t0, rightVal: t1 });
+        lEnd = t0; rEnd = t1; return;
+      }
+      if (e.side === 'right') {
+        const match = t0 === rEnd, inner = match ? t0 : t1, outer = match ? t1 : t0;
+        seq.push({ tile: e.tile, doble, leftVal: inner, rightVal: outer }); rEnd = outer;
+      } else {
+        const match = t0 === lEnd, inner = match ? t0 : t1, outer = match ? t1 : t0;
+        seq.unshift({ tile: e.tile, doble, leftVal: outer, rightVal: inner }); lEnd = outer;
+      }
+    });
+    return seq;
+  }
+
   const draw = useCallback(() => {
-    const cv = canvasRef.current
-    if (!cv) return
-    const ctx = cv.getContext('2d')
-    if (!ctx) return
-    const state = stateRef.current
-    const W = cv.width, H = cv.height
-    ctx.clearRect(0, 0, W, H)
-    hitBoxes.current = []
+    const cv = canvasRef.current;
+    const state = stateRef.current;
+    if (!cv || !state) return;
+    const ctx = cv.getContext('2d'); if (!ctx) return;
+    const W = cv.width, H = cv.height;
+    ctx.clearRect(0, 0, W, H);
+    hitBoxes.current = [];
 
-    // Fondo mesa
-    const mesaImg = getImg(mesaSrc(mesa), draw)
-    if (mesaImg.complete && mesaImg.naturalWidth > 0) {
-      ctx.drawImage(mesaImg, 0, 0, W, H)
-    } else {
-      ctx.fillStyle = '#2A5C45'
-      ctx.fillRect(0, 0, W, H)
-    }
+    const mesaImg = getImg(MESAS[mesa] || MESAS.club, draw);
+    if (mesaImg.complete && mesaImg.naturalWidth) ctx.drawImage(mesaImg, 0, 0, W, H);
+    else { ctx.fillStyle = '#2A5C45'; ctx.fillRect(0, 0, W, H); }
 
-    if (!state) return
+    const me = state.players.find(p => p.userId === myUserId);
+    if (!me) return;
 
-    const me = state.players.find((p: any) => p.userId === myUserId)
-    if (!me) return
+    const posVisual: Record<number, number> = {};
+    posVisual[me.position] = 0;
+    let v = 1;
+    for (let off = 1; off < 4; off++) posVisual[(me.position + off) % 4] = v++;
 
-    // Mapear posiciones server → visual (yo siempre = visual 0 = abajo)
-    const posVisual: Record<number, number> = {}
-    posVisual[me.position] = 0
-    let v = 1
-    for (let off = 1; off < 4; off++) {
-      posVisual[(me.position + off) % 4] = v++
-    }
+    drawBoard(ctx, W, H, state);
+    for (const p of state.players) drawHand(ctx, W, H, p, posVisual[p.position] ?? p.position, state);
+    drawScores(ctx, W, H, state);
+  }, [gameState, mesa, setFichas, myUserId, getImg]);
 
-    // Tablero central
-    drawBoard(ctx, W, H, state)
-
-    // Manos de cada jugador
-    for (const p of state.players) {
-      const vp = posVisual[p.position] ?? p.position
-      drawHand(ctx, W, H, p, vp, state)
-    }
-
-    // Scores
-    if (state.scores) drawScores(ctx, W, H, state)
-
-  }, [gameState, mesa, setFichas, myUserId, getImg])
-
-  // ── Tablero ───────────────────────────────────────────────────────
-  function drawBoard(ctx: CanvasRenderingContext2D, W: number, H: number, state: GameState) {
-    const brd = [...state.board].sort((a: any, b: any) => a.order - b.order)
-    if (brd.length === 0) return
-
-    const LONG = 50, CORTO = 26, GAP = 3
-
-    // Construir secuencia izq→der
-    const seq: { tile: Tile; doble: boolean; side: string }[] = []
-    for (const e of brd) {
-      const doble = e.tile[0] === e.tile[1]
-      if (e.side === 'left') seq.unshift({ tile: e.tile, doble, side: e.side })
-      else seq.push({ tile: e.tile, doble, side: e.side })
-    }
-
-    // Calcular ancho total
-    let totW = 0
-    for (const s of seq) totW += (s.doble ? CORTO : LONG) + GAP
-    totW -= GAP
-
-    // Si no cabe, escalar
-    const maxW = W - 40
-    const scale = totW > maxW ? maxW / totW : 1
-    const L = LONG * scale, C = CORTO * scale, G = GAP * scale
-
-    let x = (W - totW * scale) / 2
-    const cy = H / 2
-
-    for (const s of seq) {
-      const w = s.doble ? C : L
-      const h = s.doble ? L : C
-      drawTile(ctx, x, cy - h / 2, w, h, !s.doble, s.tile)
-      x += w + G
-    }
-  }
-
-  // ── Manos ─────────────────────────────────────────────────────────
-  function drawHand(
-    ctx: CanvasRenderingContext2D, W: number, H: number,
-    p: any, vp: number, state: GameState
-  ) {
-    const esMiTurno = state.currentTurn === p.position
-    const esViewer = vp === 0
-    const hand: Tile[] = p.hand || []
-    const n = hand.length
-
-    if (n === 0) return
-
-    const name = p.username || `J${p.position + 1}`
-
-    if (esViewer) {
-      // ABAJO — fichas grandes clickeables
-      const FW = 48, FH = 90, GAP = 8
-      const tot = n * (FW + GAP) - GAP
-      const startX = (W - tot) / 2
-      const baseY = H - FH - 30
-
-      hand.forEach((t: Tile, i: number) => {
-        const x = startX + i * (FW + GAP)
-        const hover = hoverIdx.current === i
-        const y = hover ? baseY - 10 : baseY
-        drawTile(ctx, x, y, FW, FH, false, t, esMiTurno)
-        hitBoxes.current.push({ x: x - 4, y: baseY - 14, w: FW + 8, h: FH + 18, tile: t })
-      })
-      chip(ctx, name + ' (tú)', W / 2, H - 12, esMiTurno, p.team)
-
-    } else if (vp === 1) {
-      // DERECHA — dorsos verticales
-      const DW = 18, DH = 36, DG = 4
-      const totH = n * (DH + DG) - DG
-      const startY = (H - totH) / 2
-      const rx = W - DW - 20
-      hand.forEach((_: Tile, i: number) => {
-        drawTile(ctx, rx, startY + i * (DH + DG), DW, DH, false, HIDDEN)
-      })
-      chip(ctx, name, W - DW - 36, 24, esMiTurno, p.team)
-
-    } else if (vp === 2) {
-      // ARRIBA — dorsos horizontales
-      const UW = 36, UH = 18, UG = 4
-      const totW = n * (UW + UG) - UG
-      const startX = (W - totW) / 2
-      hand.forEach((_: Tile, i: number) => {
-        drawTile(ctx, startX + i * (UW + UG), 20, UW, UH, true, HIDDEN)
-      })
-      chip(ctx, name, W / 2, 10, esMiTurno, p.team)
-
-    } else {
-      // IZQUIERDA — dorsos verticales
-      const DW = 18, DH = 36, DG = 4
-      const totH = n * (DH + DG) - DG
-      const startY = (H - totH) / 2
-      hand.forEach((_: Tile, i: number) => {
-        drawTile(ctx, 20, startY + i * (DH + DG), DW, DH, false, HIDDEN)
-      })
-      chip(ctx, name, DW + 36, 24, esMiTurno, p.team)
-    }
-  }
-
-  // ── Dibujar una ficha ─────────────────────────────────────────────
   function drawTile(
     ctx: CanvasRenderingContext2D,
-    x: number, y: number, w: number, h: number,
-    horiz: boolean, val: Tile, highlight = false
+    x: number, y: number, long: number, corto: number,
+    horiz: boolean, val: Tile,
+    hl = false, flip = false, hlHalf: 'top' | 'bottom' | null = null
   ) {
-    const oculta = val[0] === -1
-    const src = oculta ? dorsoSrc(setFichas) : fichaSrc(setFichas, val[0], val[1])
-    const img = getImg(src, draw)
-
-    if (highlight) {
-      ctx.save()
-      ctx.shadowColor = '#FF6B4A'
-      ctx.shadowBlur = 14
-    }
-
+    const oculta = val[0] === HIDDEN_A;
+    const src = oculta ? dorsoSrc(setFichas) : fichaSrc(setFichas, val[0], val[1]);
+    const img = getImg(src, draw);
+    const w = horiz ? long : corto, h = horiz ? corto : long;
+    if (hl) { ctx.save(); ctx.shadowColor = '#FF6B4A'; ctx.shadowBlur = 12; }
     if (img.complete && img.naturalWidth > 0) {
-      if (horiz) {
-        // Imagen vertical rotada 90° para fichas horizontales
-        ctx.save()
-        ctx.translate(x + w / 2, y + h / 2)
-        ctx.rotate(Math.PI / 2)
-        ctx.drawImage(img, -h / 2, -w / 2, h, w)
-        ctx.restore()
+      ctx.save();
+      ctx.translate(x + w / 2, y + h / 2);
+      if (horiz) ctx.rotate(Math.PI / 2);
+      if (flip) ctx.scale(1, -1);
+      if (horiz) ctx.drawImage(img, -h / 2, -w / 2, h, w);
+      else ctx.drawImage(img, -w / 2, -h / 2, w, h);
+      ctx.restore();
+    } else {
+      ctx.fillStyle = oculta ? '#3A2418' : '#F4E6C8';
+      roundRect(ctx, x, y, w, h, 6); ctx.fill();
+    }
+    // iluminado de media ficha (ficha vertical de la mano del viewer)
+    if (hlHalf && !horiz) {
+      const yy = hlHalf === 'top' ? y : y + h / 2;
+      ctx.save();
+      ctx.fillStyle = 'rgba(255,107,74,0.38)';
+      roundRect(ctx, x, yy, w, h / 2, 6); ctx.fill();
+      ctx.restore();
+    }
+    if (hl) ctx.restore();
+  }
+
+  function drawBoard(ctx: CanvasRenderingContext2D, W: number, H: number, state: GameState) {
+    const seq = buildOrientedSeq(state.board);
+    if (seq.length === 0) return;
+    const L = 48, C = 24;
+    let tot = 0; seq.forEach(s => (tot += (s.doble ? C : L) + 4));
+    let x = (W - tot) / 2; const y = H / 2 - C / 2;
+    for (const s of seq) {
+      if (s.doble) {
+        drawTile(ctx, x, y - C / 2, L, C, false, s.tile, false, false);
+        x += C + 4;
       } else {
-        ctx.drawImage(img, x, y, w, h)
+        const flip = s.leftVal > s.rightVal;
+        drawTile(ctx, x, y, L, C, true, s.tile, false, flip);
+        x += L + 4;
       }
-    } else {
-      // Placeholder mientras carga
-      ctx.fillStyle = oculta ? '#3A2418' : '#F4E6C8'
-      roundRect(ctx, x, y, w, h, 5)
-      ctx.fill()
-      ctx.strokeStyle = '#888'
-      ctx.lineWidth = 1
-      ctx.stroke()
     }
-
-    if (highlight) ctx.restore()
   }
 
-  // ── Scores ────────────────────────────────────────────────────────
-  function drawScores(ctx: CanvasRenderingContext2D, W: number, H: number, state: GameState) {
-    const s0 = state.scores[0] ?? 0
-    const s1 = state.scores[1] ?? 0
-    const bx = 16, by = H / 2 - 30, bw = 72, bh = 60
-    roundRect(ctx, bx, by, bw, bh, 8)
-    ctx.fillStyle = 'rgba(13,8,5,0.78)'
-    ctx.fill()
-    ctx.font = '500 12px sans-serif'
-    ctx.textAlign = 'left'
-    ctx.textBaseline = 'middle'
-    ctx.fillStyle = '#4a90d9'
-    ctx.fillText('Rojo  ' + s0, bx + 10, by + 18)
-    ctx.fillStyle = '#e06a45'
-    ctx.fillText('Azul  ' + s1, bx + 10, by + 42)
-  }
-
-  // ── Chip de nombre ────────────────────────────────────────────────
-  function chip(
-    ctx: CanvasRenderingContext2D,
-    txt: string, x: number, y: number,
-    turno: boolean, team: number | null
+  function drawHand(
+    ctx: CanvasRenderingContext2D, W: number, H: number,
+    p: PlayerState, vp: number, state: GameState
   ) {
-    ctx.font = '500 11px sans-serif'
-    ctx.textAlign = 'center'
-    ctx.textBaseline = 'middle'
-    const tw = ctx.measureText(txt).width + 24
-    ctx.save()
-    if (turno) { ctx.shadowColor = '#FF6B4A'; ctx.shadowBlur = 12 }
-    roundRect(ctx, x - tw / 2, y - 10, tw, 20, 10)
-    ctx.fillStyle = turno ? '#FF6B4A' : 'rgba(30,20,12,0.88)'
-    ctx.fill()
-    ctx.restore()
-    ctx.fillStyle = '#F4E6C8'
-    ctx.fillText(txt, x, y)
-    // Dot de equipo
-    const dotX = x - tw / 2 + 8
-    ctx.beginPath()
-    ctx.arc(dotX, y, 3, 0, Math.PI * 2)
-    ctx.fillStyle = team === 0 ? '#4a90d9' : team === 1 ? '#e06a45' : '#888'
-    ctx.fill()
-  }
+    const esViewer = vp === 0;
+    const n = p.hand.length;
+    const esMiTurno = state.currentTurn === p.position;
 
-  // ── Redibujar cuando cambia el estado ────────────────────────────
-  useEffect(() => { draw() }, [draw])
-
-  // ── Interacción ───────────────────────────────────────────────────
-  function getCoordsFromEvent(e: React.MouseEvent | React.TouchEvent): { cx: number; cy: number } | null {
-    const cv = canvasRef.current
-    if (!cv) return null
-    const rect = cv.getBoundingClientRect()
-    const scaleX = cv.width / rect.width
-    const scaleY = cv.height / rect.height
-    let clientX: number, clientY: number
-    if ('touches' in e.nativeEvent) {
-      const t = (e.nativeEvent as TouchEvent).touches[0] || (e.nativeEvent as TouchEvent).changedTouches[0]
-      clientX = t.clientX; clientY = t.clientY
+    if (esViewer) {
+      const fw = 50, fh = 96, gap = 10;
+      const tot = n * (fw + gap) - gap;
+      const hx = (W - tot) / 2, hy = H - fh - 24;
+      p.hand.forEach((t, i) => {
+        const x = hx + i * (fw + gap);
+        const hover = hoverIdx.current === i;
+        const jugable = esMiTurno && ladosValidos(t).length > 0;
+        const media = hover ? hoverHalf.current : null;
+        drawTile(ctx, x, hover ? hy - 8 : hy, fh, fw, false, t, jugable, false, media);
+        hitBoxes.current.push({ x: x - 4, y: hy - 12, w: fw + 8, h: fh + 16, tile: t, ty: hy, th: fh });
+      });
+      chip(ctx, p.username + ' (tú)', W / 2, H - 8, esMiTurno, p.team);
+    } else if (vp === 1) {
+      const dw = 20, dh = 40, dg = 5;
+      const ty = (H - (n * (dh + dg) - dg)) / 2, rx = W - dw - 44;
+      p.hand.forEach((_, i) => drawTile(ctx, rx, ty + i * (dh + dg), dh, dw, false, [HIDDEN_A, HIDDEN_A]));
+      chip(ctx, p.username, W - 62, 78, esMiTurno, p.team);
+    } else if (vp === 2) {
+      const uw = 40, uh = 20, ug = 5;
+      const tot = n * (uw + ug) - ug, ux = (W - tot) / 2;
+      p.hand.forEach((_, i) => drawTile(ctx, ux + i * (uw + ug), 44, uw, uh, true, [HIDDEN_A, HIDDEN_A]));
+      chip(ctx, p.username, W / 2, 28, esMiTurno, p.team);
     } else {
-      clientX = (e.nativeEvent as MouseEvent).clientX
-      clientY = (e.nativeEvent as MouseEvent).clientY
+      const dw = 20, dh = 40, dg = 5;
+      const ty = (H - (n * (dh + dg) - dg)) / 2, lx = 44;
+      p.hand.forEach((_, i) => drawTile(ctx, lx, ty + i * (dh + dg), dh, dw, false, [HIDDEN_A, HIDDEN_A]));
+      chip(ctx, p.username, 62, 78, esMiTurno, p.team);
     }
-    return { cx: (clientX - rect.left) * scaleX, cy: (clientY - rect.top) * scaleY }
   }
 
-  function handleClick(e: React.MouseEvent | React.TouchEvent) {
-    const c = getCoordsFromEvent(e)
-    if (!c) return
-    const state = stateRef.current
-    const me = state.players.find((p: any) => p.userId === myUserId)
-    if (!me || state.currentTurn !== me.position) return // no es mi turno
+  function drawScores(ctx: CanvasRenderingContext2D, W: number, H: number, state: GameState) {
+    if (!state.scores) return;
+    const s0 = state.scores[0] ?? 0, s1 = state.scores[1] ?? 0;
+    ctx.font = '500 13px sans-serif'; ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
+    roundRect(ctx, 24, H / 2 - 28, 70, 56, 8);
+    ctx.fillStyle = 'rgba(13,8,5,0.72)'; ctx.fill();
+    ctx.fillStyle = TEAMS[0].color; ctx.fillText(TEAMS[0].nombre + ' ' + s0, 34, H / 2 - 11);
+    ctx.fillStyle = TEAMS[1].color; ctx.fillText(TEAMS[1].nombre + ' ' + s1, 34, H / 2 + 12);
+  }
 
+  function chip(
+    ctx: CanvasRenderingContext2D, txt: string, x: number, y: number,
+    turno: boolean, eq: number | null
+  ) {
+    ctx.font = '500 12px sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    const w = ctx.measureText(txt).width + 26;
+    ctx.save(); if (turno) { ctx.shadowColor = '#FF6B4A'; ctx.shadowBlur = 12; }
+    roundRect(ctx, x - w / 2, y - 11, w, 22, 11);
+    ctx.fillStyle = turno ? '#FF6B4A' : 'rgba(42,24,16,0.9)'; ctx.fill();
+    ctx.restore();
+    ctx.fillStyle = '#F4E6C8'; ctx.fillText(txt, x, y);
+    ctx.beginPath(); ctx.arc(x - w / 2 + 9, y, 3.5, 0, 7);
+    ctx.fillStyle = eq === 0 ? TEAMS[0].color : TEAMS[1].color; ctx.fill();
+  }
+
+  useEffect(() => { draw(); }, [draw]);
+
+  function coordsFromEvent(e: MouseEvent | TouchEvent): { cx: number; cy: number } | null {
+    const cv = canvasRef.current; if (!cv) return null;
+    const rect = cv.getBoundingClientRect();
+    const scaleX = cv.width / rect.width, scaleY = cv.height / rect.height;
+    let clientX: number, clientY: number;
+    if ('touches' in e) {
+      const t = e.touches[0] || e.changedTouches[0];
+      clientX = t.clientX; clientY = t.clientY;
+    } else { clientX = e.clientX; clientY = e.clientY; }
+    return { cx: (clientX - rect.left) * scaleX, cy: (clientY - rect.top) * scaleY };
+  }
+
+  function emitir(tile: Tile, side: 'left' | 'right') {
+    onPlay(tile, side);
+    setChoice(null);
+    hoverIdx.current = -1; hoverHalf.current = null;
+  }
+
+  function halfOf(hb: HitBox, cy: number): 'top' | 'bottom' {
+    return cy < hb.ty + hb.th / 2 ? 'top' : 'bottom';
+  }
+
+  function jugarFicha(tile: Tile, tappedNumber: number) {
+    const state = stateRef.current;
+    if (!state) return;
+    const me = state.players.find(p => p.userId === myUserId);
+    if (!me || state.currentTurn !== me.position) return;
+
+    const lados = ladosValidos(tile);
+    if (lados.length === 0) return;
+    if (lados.length === 1) return emitir(tile, lados[0]);
+
+    const { leftEnd, rightEnd } = state;
+    if (leftEnd !== rightEnd) {
+      let side: 'left' | 'right' | null =
+        leftEnd === tappedNumber ? 'left' :
+        rightEnd === tappedNumber ? 'right' : null;
+      if (!side) {
+        const otro = tile[0] === tappedNumber ? tile[1] : tile[0];
+        side = leftEnd === otro ? 'left' : rightEnd === otro ? 'right' : null;
+      }
+      if (side) return emitir(tile, side);
+      return;
+    }
+    // ambos extremos iguales → preguntar lado con botones
+    setChoice({ tile });
+  }
+
+  function onPointer(clientEv: React.MouseEvent | React.TouchEvent) {
+    const c = coordsFromEvent(clientEv.nativeEvent as any);
+    if (!c) return;
     for (const hb of hitBoxes.current) {
       if (c.cx >= hb.x && c.cx <= hb.x + hb.w && c.cy >= hb.y && c.cy <= hb.y + hb.h) {
-        const tile = hb.tile
-        const { leftEnd, rightEnd } = state
-
-        let side: 'left' | 'right' | null = null
-        if (leftEnd === null && rightEnd === null) {
-          side = 'right' // primera ficha
-        } else if (leftEnd !== null && (tile[0] === leftEnd || tile[1] === leftEnd)) {
-          side = 'left'
-        } else if (rightEnd !== null && (tile[0] === rightEnd || tile[1] === rightEnd)) {
-          side = 'right'
-        }
-        // Si encaja en ambos lados, preferir izquierda
-        if (leftEnd !== null && rightEnd !== null &&
-          (tile[0] === leftEnd || tile[1] === leftEnd) &&
-          (tile[0] === rightEnd || tile[1] === rightEnd)) {
-          side = 'left'
-        }
-
-        if (side) onPlay(tile, side)
-        return
+        const half = halfOf(hb, c.cy);
+        const tappedNumber = half === 'top' ? hb.tile[0] : hb.tile[1];
+        jugarFicha(hb.tile, tappedNumber);
+        return;
       }
     }
   }
 
-  function handleMouseMove(e: React.MouseEvent) {
-    const c = getCoordsFromEvent(e)
-    if (!c) return
-    let idx = -1
+  function onMove(e: React.MouseEvent) {
+    const c = coordsFromEvent(e.nativeEvent);
+    if (!c) return;
+    let idx = -1; let half: 'top' | 'bottom' | null = null;
     hitBoxes.current.forEach((hb, i) => {
-      if (c.cx >= hb.x && c.cx <= hb.x + hb.w && c.cy >= hb.y && c.cy <= hb.y + hb.h) idx = i
-    })
-    if (idx !== hoverIdx.current) {
-      hoverIdx.current = idx
-      draw()
+      if (c.cx >= hb.x && c.cx <= hb.x + hb.w && c.cy >= hb.y && c.cy <= hb.y + hb.h) {
+        idx = i; half = halfOf(hb, c.cy);
+      }
+    });
+    if (idx >= 0) {
+      const tile = hitBoxes.current[idx].tile;
+      const state = stateRef.current;
+      const dobleExtremo = ladosValidos(tile).length === 2 && state?.leftEnd !== state?.rightEnd;
+      if (!dobleExtremo) half = null;
+    }
+    if (idx !== hoverIdx.current || half !== hoverHalf.current) {
+      hoverIdx.current = idx; hoverHalf.current = half; draw();
     }
   }
 
+  const state = gameState;
+  const me = state?.players.find(p => p.userId === myUserId);
+  const esMiTurno = me && state?.currentTurn === me.position;
+
   return (
-    <div className="flex flex-col items-center gap-3">
-      <canvas
-        ref={canvasRef}
-        width={640}
-        height={640}
-        onClick={handleClick}
-        onTouchStart={handleClick}
-        onMouseMove={handleMouseMove}
-        style={{
-          width: '100%',
-          maxWidth: 560,
-          display: 'block',
-          borderRadius: 16,
-          touchAction: 'manipulation',
-          cursor: 'pointer',
-        }}
-      />
+    <div style={{ position: 'relative', width: '100%', maxWidth: 560, margin: '0 auto' }}>
+      <canvas ref={canvasRef} width={640} height={640}
+        onClick={onPointer} onTouchStart={onPointer} onMouseMove={onMove}
+        style={{ width: '100%', display: 'block', borderRadius: 16,
+          touchAction: 'manipulation', cursor: 'pointer' }} />
+
       {/* Botón pasar turno */}
-      {(() => {
-        const me = gameState.players.find((p: any) => p.userId === myUserId)
-        const esMiTurno = me && gameState.currentTurn === me.position
-        if (!esMiTurno) return null
-        return (
-          <button
-            onClick={onPass}
-            className="px-6 py-2 bg-white/10 hover:bg-white/20 border border-white/20 rounded-xl text-sm font-medium transition"
-          >
+      {esMiTurno && (
+        <div style={{ textAlign: 'center', marginTop: 8 }}>
+          <button onClick={onPass}
+            style={{ padding: '8px 20px', borderRadius: 10, fontWeight: 600,
+              border: '1px solid rgba(255,255,255,0.2)', background: 'rgba(255,255,255,0.1)',
+              color: '#fff', cursor: 'pointer' }}>
             Pasar turno
           </button>
-        )
-      })()}
+        </div>
+      )}
+
+      {/* Modal elegir lado (extremos iguales) */}
+      {choice && (
+        <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center',
+          justifyContent: 'center', gap: 16, background: 'rgba(0,0,0,.45)', borderRadius: 16 }}>
+          <button onClick={() => emitir(choice.tile, 'left')}
+            style={{ padding: '12px 20px', borderRadius: 10, fontWeight: 600,
+              border: 'none', cursor: 'pointer' }}>
+            ◀ Izquierda
+          </button>
+          <button onClick={() => emitir(choice.tile, 'right')}
+            style={{ padding: '12px 20px', borderRadius: 10, fontWeight: 600,
+              border: 'none', cursor: 'pointer' }}>
+            Derecha ▶
+          </button>
+        </div>
+      )}
     </div>
-  )
+  );
+}
+
+function roundRect(ctx: CanvasRenderingContext2D, x: number, y: number, w: number, h: number, r: number) {
+  ctx.beginPath(); ctx.moveTo(x + r, y);
+  ctx.arcTo(x + w, y, x + w, y + h, r); ctx.arcTo(x + w, y + h, x, y + h, r);
+  ctx.arcTo(x, y + h, x, y, r); ctx.arcTo(x, y, x + w, y, r); ctx.closePath();
 }
