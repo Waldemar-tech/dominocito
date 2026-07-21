@@ -44,7 +44,7 @@ type Rect = { x: number; y: number; w: number; h: number };
 // las evita y sirve para las 5 mesas.
 // ⚠ AFINA por mesa con calibrador_mesas.html si el fieltro visual de alguna
 // .jpg es más chico; agrega la clave en FIELTRO para sobreescribir el default.
-const FIELTRO_DEFAULT: Rect = { x: 0.20, y: 0.25, w: 0.60, h: 0.55 };
+const FIELTRO_DEFAULT: Rect = { x: 0.21, y: 0.21, w: 0.58, h: 0.58 };
 const FIELTRO: Record<string, Rect> = {
   // club: { x: .., y: .., w: .., h: .. }, // override opcional por mesa
 };
@@ -262,13 +262,15 @@ export default function Domino2D({
 
     const fr = FIELTRO[mesa] ?? FIELTRO_DEFAULT;
     const bounds: Rect = { x: fr.x * W, y: fr.y * H, w: fr.w * W, h: fr.h * H };
-    const { tiles, unit, scale, cx0, cy0 } = layoutSerpentine(seq, bounds);
-    const L = 2 * unit, C = unit;
-
-    // (debug fieltro) — ACTIVO para esta ronda de calibración.
-    // Cuando el fieltro quede clavado, comenta estas 3 líneas.
+    // (debug fieltro) — ACTIVO para esta ronda de calibración. Se dibuja aunque
+    // la mesa esté vacía. Cuando el fieltro quede clavado, comenta estas 3 líneas.
     ctx.save(); ctx.strokeStyle = 'rgba(255,255,255,.6)'; ctx.lineWidth = 2;
     ctx.strokeRect(bounds.x, bounds.y, bounds.w, bounds.h); ctx.restore();
+
+    if (seq.length === 0) return;
+
+    const { tiles, unit, scale, cx0, cy0 } = layoutSerpentine(seq, bounds);
+    const L = 2 * unit, C = unit;
 
     ctx.save();
     if (scale < 1) {
