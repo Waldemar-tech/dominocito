@@ -422,7 +422,7 @@ export default function Domino2D({
   const esMiTurno = me && state?.currentTurn === me.position;
 
   return (
-    <div style={{ position: 'relative', width: '100%', maxWidth: 760, margin: '0 auto' }}>
+    <div style={{ position: 'relative', width: '100%', maxWidth: 680, margin: '0 auto' }}>
       <canvas ref={canvasRef} width={640} height={640}
         onClick={onPointer} onTouchStart={onPointer} onMouseMove={onMove}
         style={{ width: '100%', display: 'block', borderRadius: 16,
