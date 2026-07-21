@@ -927,10 +927,10 @@ export default function App() {
                   }}
                 >
                   {/* Pills montos rápidos */}
-                  <div className="flex items-center justify-center gap-2 mb-3">
+                  <div className="flex items-center justify-center gap-1.5 mb-2">
                     <button
                       onClick={() => setBetAmount(Math.max(0.25, betAmount - 0.25))}
-                      className="w-8 h-8 rounded-full font-black text-lg transition-all hover:scale-110"
+                      className="w-6 h-6 rounded-full font-black text-sm transition-all hover:scale-110"
                       style={{ background: 'var(--walnut)', color: 'var(--cream-soft)', border: 'none', cursor: 'pointer' }}
                     >
                       −
@@ -940,8 +940,9 @@ export default function App() {
                         <button
                           key={v}
                           onClick={() => setBetAmount(v)}
-                          className="px-2.5 py-1.5 rounded-full text-xs font-black transition-all"
+                          className="px-2 py-1 rounded-full font-black transition-all"
                           style={{
+                            fontSize: '10px',
                             background: betAmount === v ? 'var(--coral)' : 'rgba(58, 36, 24, 0.08)',
                             color: betAmount === v ? 'white' : 'var(--walnut)',
                             border: 'none',
@@ -953,8 +954,9 @@ export default function App() {
                       ))}
                       <button
                         onClick={() => setBetAmount(wallet.balance)}
-                        className="px-2.5 py-1.5 rounded-full text-xs font-black transition-all"
+                        className="px-2 py-1 rounded-full font-black transition-all"
                         style={{
+                          fontSize: '10px',
                           background: 'rgba(58, 36, 24, 0.08)',
                           color: 'var(--walnut)',
                           border: 'none',
@@ -966,7 +968,7 @@ export default function App() {
                     </div>
                     <button
                       onClick={() => setBetAmount(Math.min(25, betAmount + 0.25))}
-                      className="w-8 h-8 rounded-full font-black text-lg transition-all hover:scale-110"
+                      className="w-6 h-6 rounded-full font-black text-sm transition-all hover:scale-110"
                       style={{ background: 'var(--walnut)', color: 'var(--cream-soft)', border: 'none', cursor: 'pointer' }}
                     >
                       +
@@ -975,44 +977,26 @@ export default function App() {
 
                   {/* Input monto */}
                   <div
-                    className="rounded-2xl px-4 py-3 mb-3 flex items-center justify-center"
+                    className="rounded-xl px-3 py-2 mb-2 flex items-center justify-center"
                     style={{ background: 'rgba(20, 10, 5, 0.85)' }}
                   >
-                    <span className="font-black text-2xl" style={{ color: 'var(--cream-soft)', fontFamily: 'monospace' }}>
+                    <span className="font-black text-xl" style={{ color: 'var(--cream-soft)', fontFamily: 'monospace' }}>
                       {(betAmount * 1000).toLocaleString('es-VE', { maximumFractionDigits: 0 })}
                     </span>
-                  </div>
-
-                  {/* Iconos laterales + botón APOSTAR */}
-                  <div className="flex items-center justify-between gap-2 mb-3">
-                    <button
-                      className="w-10 h-10 rounded-full flex items-center justify-center text-lg transition-transform hover:scale-110"
-                      style={{ background: '#10b981', color: 'white', border: 'none', cursor: 'pointer' }}
-                      title="Estadísticas"
-                    >
-                      📊
-                    </button>
-                    <button
-                      className="w-10 h-10 rounded-full flex items-center justify-center text-sm font-black transition-transform hover:scale-110"
-                      style={{ background: '#10b981', color: 'white', border: 'none', cursor: 'pointer' }}
-                      title="Duplicar"
-                    >
-                      ↻2x
-                    </button>
                   </div>
 
                   {/* Botón APOSTAR verde */}
                   <button
                     onClick={handleApostar}
                     disabled={selectedId === null}
-                    className="w-full py-4 rounded-2xl font-black text-base transition-all"
+                    className="w-full py-2.5 rounded-xl font-black transition-all mb-2"
                     style={{
+                      fontSize: '13px',
                       background: selectedId !== null ? '#22c55e' : 'rgba(58, 36, 24, 0.15)',
                       color: selectedId !== null ? 'white' : 'var(--walnut)',
                       cursor: selectedId !== null ? 'pointer' : 'not-allowed',
-                      boxShadow: selectedId !== null ? '0 6px 20px rgba(34, 197, 94, 0.4)' : 'none',
+                      boxShadow: selectedId !== null ? '0 4px 14px rgba(34, 197, 94, 0.4)' : 'none',
                       border: 'none',
-                      fontSize: '16px',
                       letterSpacing: '0.05em',
                     }}
                   >
@@ -1021,14 +1005,14 @@ export default function App() {
 
                   {/* Card Jugada Seleccionada */}
                   <div
-                    className="mt-3 rounded-2xl px-4 py-3 flex items-center justify-between"
+                    className="rounded-xl px-3 py-2 flex items-center justify-between"
                     style={{ background: 'var(--walnut)' }}
                   >
-                    <span className="text-xs font-bold" style={{ color: 'var(--cream-soft)' }}>
+                    <span style={{ fontSize: '10px', fontWeight: 700, color: 'var(--cream-soft)' }}>
                       Jugada seleccionada
                     </span>
                     <span
-                      className="font-black text-lg"
+                      className="font-black text-sm"
                       style={{ color: selectedId !== null ? 'var(--coral)' : 'rgba(245, 230, 211, 0.3)' }}
                     >
                       {selectedId !== null ? DOMINOES[selectedId].label : '— —'}
