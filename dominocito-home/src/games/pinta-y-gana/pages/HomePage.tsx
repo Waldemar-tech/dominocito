@@ -1,4 +1,6 @@
 import { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { getCurrentUser } from '../auth/authStore';
 import { DOMINOES } from '../engine/dominoes';
 import { assetUrl } from '../utils/baseUrl';
 
@@ -70,6 +72,8 @@ function HeroSparkles() {
 
 // ── Hero — replica del moodboard (full-bleed, título display, CTA coral) ──
 function Hero({ onRegister }: { onRegister: () => void }) {
+  const navigate = useNavigate();
+  const isLoggedIn = !!getCurrentUser();
   const [slide, setSlide] = useState(0);
 
   // Auto-advance carousel
@@ -146,7 +150,13 @@ function Hero({ onRegister }: { onRegister: () => void }) {
 
         {/* CTA hero */}
         <button
-          onClick={onRegister}
+          onClick={() => {
+            if (isLoggedIn) {
+              navigate('/pinta-y-gana/game');
+            } else {
+              onRegister();
+            }
+          }}
           className="btn-coral-hero relative z-20 mt-10 inline-flex items-center gap-3"
         >
           <span>Jugar Ahora</span>

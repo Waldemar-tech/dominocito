@@ -1,5 +1,5 @@
 import { useState, useCallback, useEffect, useRef } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
+import { useNavigate, useLocation, Link } from 'react-router-dom';
 import { DOMINOES } from './engine/dominoes';
 import { crearSorteo, apostar as apostarSorteo, cerrarYRevelar } from './engine/sorteo';
 import type { SorteoState } from './engine/sorteo';
@@ -550,15 +550,15 @@ export default function App() {
     setShowWinBanner(false);
   };
 
-  // ── ROUTING ──────────────────────────────────────────────────────
-  // Not logged in → homepage + optional auth modal
-  if (!currentUser) {
+  // ── ROUTING: detectar ruta ──
+  const location = useLocation();
+  const isGameRoute = location.pathname.endsWith('/pinta-y-gana/game');
+
+  // Si estamos en /pinta-y-gana (home) → mostrar HomePage siempre
+  if (!isGameRoute) {
     return (
       <>
-        <HomePage
-          onRegister={() => { setAuthMode('register'); setShowAuth(true); }}
-        />
-        {/* FloatingNav removido: usamos GameLogosBar global */}
+        <HomePage onRegister={() => { setAuthMode('register'); setShowAuth(true); }} />
         {showAuth && (
           <AuthScreen
             onAuthenticated={handleAuthenticated}
@@ -569,6 +569,8 @@ export default function App() {
       </>
     );
   }
+
+
 
   // ── GAME ──────────────────────────────────────────────────────────
   const betsByDomino = sorteo.bets.reduce((acc, b) => {

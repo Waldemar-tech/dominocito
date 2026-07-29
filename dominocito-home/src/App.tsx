@@ -27,7 +27,7 @@ function RouteFallback() {
  */
 function GlobalFrame({ children }: { children: React.ReactNode }) {
   const location = useLocation();
-  const hiddenRoutes = ['/pinta-y-gana'];
+  const hiddenRoutes = ['/pinta-y-gana/game'];
   const hideBar = hiddenRoutes.some(r => location.pathname.startsWith(r));
   return (
     <>
@@ -48,6 +48,7 @@ export default function App() {
           <Route path="/domino/lobby" element={<GlobalFrame><DominoLobby /></GlobalFrame>} />
           <Route path="/domino/room/:code" element={<GlobalFrame><DominoRoom /></GlobalFrame>} />
           <Route path="/pinta-y-gana" element={<GlobalFrame><PintaYGana /></GlobalFrame>} />
+          <Route path="/pinta-y-gana/game" element={<GlobalFrame><PintaYGana /></GlobalFrame>} />
           <Route path="/loteria" element={<GlobalFrame><LoteriaPage /></GlobalFrame>} />
         </Routes>
       </Suspense>
