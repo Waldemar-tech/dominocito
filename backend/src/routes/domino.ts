@@ -229,7 +229,8 @@ router.get('/rooms/:code', requireAuth, async (req: Request, res: Response) => {
              'team', p.team,
              'is_connected', p.is_connected,
              'username', u.username,
-             'display_name', u.username
+             'display_name', u.username,
+             'avatar', u.avatar
            ) ORDER BY p.position
          ) FILTER (WHERE p.id IS NOT NULL) as players
        FROM dc_domino_rooms r

@@ -10,6 +10,7 @@ interface Player {
   user_id: number
   username: string
   display_name?: string
+  avatar?: string | null
   position: number
   team: number | null
   is_connected: boolean
@@ -376,6 +377,7 @@ export default function DominoRoom() {
             onLeave={leaveRoom}
             onChooseTeam={chooseTeam}
             onSetTeams={setTeams}
+            onChooseAvatar={(avatar) => socketRef.current?.emit('domino:choose_avatar', { avatar })}
           />
         )}
 

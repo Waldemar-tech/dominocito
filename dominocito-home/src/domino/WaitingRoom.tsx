@@ -2,6 +2,7 @@ interface Player {
   user_id: number
   username: string
   display_name?: string
+  avatar?: string | null
   position: number
   team: number | null
   is_connected: boolean
@@ -32,6 +33,7 @@ interface Props {
   onLeave: () => void
   onChooseTeam: (team: 0 | 1) => void
   onSetTeams: (assignments: Array<{ userId: number; team: 0 | 1 }>) => void
+  onChooseAvatar: (avatar: string) => void
 }
 
 // Etiquetas legibles para el front
@@ -57,6 +59,7 @@ export default function WaitingRoom({
   onLeave,
   onChooseTeam,
   onSetTeams,
+  onChooseAvatar,
 }: Props) {
   const slots = Array.from({ length: roomInfo.max_players }, (_, i) => i)
   const playersByPos = new Map(roomInfo.players.map((p) => [p.position, p]))
@@ -151,7 +154,18 @@ export default function WaitingRoom({
               >
                 {player ? (
                   <>
-                    <div className="text-3xl mb-1">{player.is_connected ? '🟢' : '⚫'}</div>
+                    <div className="relative mb-1">
+                      <img
+                        src={`/assets/avatares/${player.avatar || 'avatar-01'}.png`}
+                        alt=""
+                        className="w-14 h-14 rounded-full object-cover border-2 border-white/30 bg-black/20"
+                      />
+                      <span
+                        className={`absolute bottom-0 right-0 w-3.5 h-3.5 rounded-full border-2 border-[#1a1109] ${
+                          player.is_connected ? 'bg-green-500' : 'bg-gray-500'
+                        }`}
+                      />
+                    </div>
                     <div className="font-bold text-sm text-center truncate w-full">
                       {player.username}
                       {isMe && ' (vos)'}
@@ -215,6 +229,39 @@ export default function WaitingRoom({
             )
           })}
         </div>
+
+        {/* Selector de avatar (por usuario, te acompaña en todas las salas) */}
+        {myPlayer && (
+          <div className="mt-5 p-4 rounded-xl bg-white/5 border border-white/10">
+            <div className="text-sm text-white/70 mb-3">
+              Tu avatar{myPlayer.avatar ? '' : ' — elegí uno'}:
+            </div>
+            <div className="flex gap-2 flex-wrap">
+              {Array.from({ length: 12 }, (_, i) => {
+                const id = `avatar-${String(i + 1).padStart(2, '0')}`
+                const selected = myPlayer.avatar === id
+                return (
+                  <button
+                    key={id}
+                    onClick={() => onChooseAvatar(id)}
+                    className={`rounded-full transition ${
+                      selected
+                        ? 'ring-2 ring-amber-400 scale-110'
+                        : 'opacity-70 hover:opacity-100 hover:scale-105'
+                    }`}
+                    title={id}
+                  >
+                    <img
+                      src={`/assets/avatares/${id}.png`}
+                      alt=""
+                      className="w-12 h-12 rounded-full object-cover"
+                    />
+                  </button>
+                )
+              })}
+            </div>
+          </div>
+        )}
 
         {/* Modo 'choose': cada jugador elige */}
         {isTeams && teamMode === 'choose' && myPlayer && (

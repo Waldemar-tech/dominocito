@@ -153,7 +153,7 @@ function emitStateToAllPlayers(io: Server, state: GameState) {
 async function broadcastLobby(io: Server, roomId: number) {
   try {
     const res = await pool.query(
-      `SELECT p.user_id, p.position, p.team, p.is_connected, u.username
+      `SELECT p.user_id, p.position, p.team, p.is_connected, u.username, u.avatar
        FROM dc_domino_players p
        JOIN dc_users u ON u.id = p.user_id
        WHERE p.room_id = $1
@@ -163,6 +163,7 @@ async function broadcastLobby(io: Server, roomId: number) {
     const players = res.rows.map(r => ({
       userId: r.user_id,
       username: r.username,
+      avatar: r.avatar,
       position: r.position,
       team: r.team,
       is_connected: r.is_connected,
@@ -1051,6 +1052,21 @@ export function setupDominoSocket(io: Server) {
         markReady(io, s.roomId, s.userId);
       } catch (err) {
         console.error('[Domino] ready_next error:', err);
+      }
+    });
+
+    // ─── Elegir avatar (por usuario, se guarda en dc_users) ──
+    s.on('domino:choose_avatar', async (payload: { avatar?: string }) => {
+      try {
+        if (!s.userId) return;
+        const avatar = typeof payload?.avatar === 'string' ? payload.avatar.slice(0, 50) : null;
+        // formato esperado: avatar-01 .. avatar-12 (defensivo)
+        if (avatar && !/^avatar-\d{2}$/.test(avatar)) return;
+        await pool.query('UPDATE dc_users SET avatar = $1 WHERE id = $2', [avatar, s.userId]);
+        // re-emitir lobby para que todos re-fetcheen y vean el avatar nuevo
+        if (s.roomId) io.to(`domino:${s.roomId}`).emit('domino:lobby', {});
+      } catch (err) {
+        console.error('[Domino] choose_avatar error:', err);
       }
     });
 
