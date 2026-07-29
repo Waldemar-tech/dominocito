@@ -366,7 +366,15 @@ export default function DominoRoom() {
   const canStart = isHost && playerCount >= 2 && roomInfo.status === 'waiting'
 
   return (
-    <div className="min-h-screen p-4 pt-28">
+    <div
+      className="min-h-screen p-4 pt-28"
+      style={{
+        backgroundColor: '#2B1E17',
+        backgroundImage: 'url(/assets/hero/domino-pattern.webp)',
+        backgroundSize: '300px auto',
+        backgroundRepeat: 'repeat',
+      }}
+    >
       <div className="max-w-6xl mx-auto">
         <Link
           to="/domino"
@@ -446,15 +454,7 @@ export default function DominoRoom() {
         )}
 
         {(roomInfo.status === 'playing' || roomInfo.status === 'finished') && gameState && (
-          <div
-            className="rounded-3xl p-4 md:p-6 mb-4 border border-white/10 shadow-2xl"
-            style={{
-              backgroundColor: '#1a1109',
-              backgroundImage: 'url(/assets/hero/domino-pattern.webp)',
-              backgroundSize: '300px auto',
-              backgroundRepeat: 'repeat',
-            }}
-          >
+          <div className="rounded-3xl p-4 md:p-6 mb-4">
             {/* Título La Mesa */}
             <div className="text-center mb-4">
               <h2
@@ -465,25 +465,31 @@ export default function DominoRoom() {
               </h2>
             </div>
 
-            {/* Arena: el canvas (mesa clásica + tablero + mis fichas) + las píldoras encima.
-                mesaInset / sideOffset se afinan EN VIVO (localhost) para alinear las
-                píldoras con el borde de la mesa clásica. */}
-            <div className="relative mx-auto" style={{ maxWidth: 560, aspectRatio: '1 / 1' }}>
-              <Domino2D
-                gameState={gameState}
-                myUserId={myUserId!}
-                onPlay={playTile}
-                onPass={passTurn}
-                mesa="clasica"
-                setFichas="marfil"
-              />
+            {/* Arena: la mesa va INSET (con margen alrededor) para que las píldoras
+                queden AFUERA del borde. --gap = tamaño del margen (afinar en vivo). */}
+            <div
+              className="relative mx-auto"
+              style={{ maxWidth: 680, aspectRatio: '1 / 1' }}
+            >
+              {/* la mesa (canvas) ocupa el centro, dejando ~13% de margen a los lados */}
+              <div style={{ position: 'absolute', inset: '13%' }}>
+                <Domino2D
+                  gameState={gameState}
+                  myUserId={myUserId!}
+                  onPlay={playTile}
+                  onPass={passTurn}
+                  mesa="clasica"
+                  setFichas="marfil"
+                />
+              </div>
+              {/* las píldoras: cubren toda la arena, se posicionan en el margen (borde de la mesa) */}
               <LaMesaSeats
                 gameState={gameState}
                 roomPlayers={roomInfo.players}
                 myUserId={myUserId!}
-                mesaInset={4}
-                ring={2}
-                sideOffset={6.5}
+                mesaInset={13}
+                ring={1}
+                sideOffset={4}
               />
             </div>
           </div>
