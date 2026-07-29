@@ -37,7 +37,10 @@ type Rect = { x: number; y: number; w: number; h: number };
 
 const FIELTRO_DEFAULT: Rect = { x: 0.21, y: 0.21, w: 0.58, h: 0.58 };
 const FIELTRO: Record<string, Rect> = {
-  // club: { x: .., y: .., w: .., h: .. },
+  // 'club' usa el DEFAULT (ya afinado).
+  // 'clasica': zona de madera clara. Calibrado (opción A por detección de píxeles),
+  //            margen ~0.20 similar a la club aprobada.
+  clasica: { x: 0.20, y: 0.18, w: 0.60, h: 0.62 },
 };
 
 type SeqItem = { tile: Tile; doble: boolean; leftVal: number; rightVal: number; salida?: boolean };
@@ -210,7 +213,12 @@ export default function Domino2D({
     for (let off = 1; off < 4; off++) posVisual[(me.position + off) % 4] = v++;
 
     drawBoard(ctx, W, H, state);
-    for (const p of state.players) drawHand(ctx, W, H, p, posVisual[p.position] ?? p.position, state);
+    // Solo se dibujan MIS fichas en el canvas (vp 0). Los rivales ya no se dibujan
+    // acá: su avatar + contador de fichas va en la capa LaMesaSeats (encima del canvas).
+    for (const p of state.players) {
+      const vp = posVisual[p.position] ?? p.position;
+      if (vp === 0) drawHand(ctx, W, H, p, vp, state);
+    }
     drawScores(ctx, W, H, state);
   }, [gameState, mesa, setFichas, myUserId, getImg]);
 

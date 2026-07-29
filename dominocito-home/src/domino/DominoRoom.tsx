@@ -4,6 +4,7 @@ import { io, Socket } from 'socket.io-client'
 import WaitingRoom from './WaitingRoom'
 import Domino33 from './three/Domino33'
 import Domino2D from './Domino2D'
+import LaMesaSeats from './LaMesaSeats'
 import RoundEndModal, { RoundEndData } from './RoundEndModal'
 
 interface Player {
@@ -48,6 +49,58 @@ interface GameState {
 const API_URL = '/api'
 const SOCKET_URL = '' // mismo host (vite proxy)
 
+// DEMO MODE: gameState forzado para calibración visual de La Mesa
+const DEMO = new URLSearchParams(location.search).get('demo') === '1'
+const DEMO_STATE: GameState = {
+  roomId: 999,
+  status: 'playing',
+  currentTurn: 1,
+  leftEnd: 6,
+  rightEnd: 5,
+  passesInRow: 0,
+  winnerPosition: null,
+  winType: null,
+  scores: { 0: 42, 1: 67 },
+  moveCount: 10,
+  players: [
+    { userId: 1, username: 'cin2k', position: 0, team: 1, hand: [[5,6],[2,2],[0,3],[3,4],[1,2]], connected: true },
+    { userId: 2, username: 'Raphiña55', position: 1, team: 0, hand: [[0,0],[0,0],[0,0],[0,0],[0,0],[0,0]], connected: true },
+    { userId: 3, username: 'iousu67', position: 2, team: 1, hand: [[0,0],[0,0],[0,0],[0,0],[0,0]], connected: true },
+    { userId: 4, username: 'waldo30', position: 3, team: 0, hand: [[0,0],[0,0],[0,0]], connected: true },
+  ],
+  board: [
+    { tile: [6, 6] as [number, number], userId: 3, side: 'right' as const, order: 0 },
+    { tile: [6, 5] as [number, number], userId: 2, side: 'right' as const, order: 1 },
+    { tile: [5, 4] as [number, number], userId: 1, side: 'right' as const, order: 2 },
+    { tile: [4, 3] as [number, number], userId: 4, side: 'right' as const, order: 3 },
+    { tile: [3, 2] as [number, number], userId: 3, side: 'right' as const, order: 4 },
+    { tile: [2, 1] as [number, number], userId: 2, side: 'right' as const, order: 5 },
+    { tile: [1, 0] as [number, number], userId: 1, side: 'right' as const, order: 6 },
+    { tile: [0, 0] as [number, number], userId: 4, side: 'right' as const, order: 7 },
+    { tile: [0, 5] as [number, number], userId: 3, side: 'right' as const, order: 8 },
+    { tile: [5, 5] as [number, number], userId: 2, side: 'right' as const, order: 9 },
+  ],
+}
+
+const DEMO_ROOM_INFO = {
+  id: 999,
+  code: 'DEMO',
+  host_user_id: 1,
+  host_username: 'cin2k',
+  is_private: false,
+  max_players: 4,
+  status: 'playing',
+  game_mode: 'teams' as const,
+  team_mode: 'choose' as const,
+  target_score: 100,
+  players: [
+    { user_id: 1, username: 'cin2k', avatar: 'avatar-06', position: 0, team: 1, is_connected: true },
+    { user_id: 2, username: 'Raphiña55', avatar: 'avatar-05', position: 1, team: 0, is_connected: true },
+    { user_id: 3, username: 'iousu67', avatar: 'avatar-10', position: 2, team: 1, is_connected: true },
+    { user_id: 4, username: 'waldo30', avatar: 'avatar-01', position: 3, team: 0, is_connected: true },
+  ],
+}
+
 export default function DominoRoom() {
   const { code } = useParams<{ code: string }>()
   const navigate = useNavigate()
@@ -72,6 +125,17 @@ export default function DominoRoom() {
     setTimeout(() => {
       setToast(prev => (prev?.id === id ? null : prev))
     }, ms)
+  }, [])
+
+  // DEMO MODE: inicializar con estado de prueba para calibración
+  useEffect(() => {
+    if (DEMO) {
+      setRoomInfo(DEMO_ROOM_INFO)
+      setGameState(DEMO_STATE)
+      setMyUserId(1)
+      setMyUsername('cin2k')
+      setAuthDone(true)
+    }
   }, [])
 
   // Cargar roomInfo
@@ -124,7 +188,7 @@ export default function DominoRoom() {
   // ─── Socket ───────────────────────────────────────────────
   useEffect(() => {
     const token = localStorage.getItem('dc_access_token')
-    if (!token || !code) return
+    if (!token || !code || DEMO) return  // DEMO: saltear socket
 
     const socket = io(SOCKET_URL || window.location.origin, {
       path: '/socket.io',
@@ -382,14 +446,47 @@ export default function DominoRoom() {
         )}
 
         {(roomInfo.status === 'playing' || roomInfo.status === 'finished') && gameState && (
-          <Domino2D
-            gameState={gameState}
-            myUserId={myUserId!}
-            onPlay={playTile}
-            onPass={passTurn}
-            mesa="club"
-            setFichas="dibujito"
-          />
+          <div
+            className="rounded-3xl p-4 md:p-6 mb-4 border border-white/10 shadow-2xl"
+            style={{
+              backgroundColor: '#1a1109',
+              backgroundImage: 'url(/assets/hero/domino-pattern.webp)',
+              backgroundSize: '300px auto',
+              backgroundRepeat: 'repeat',
+            }}
+          >
+            {/* Título La Mesa */}
+            <div className="text-center mb-4">
+              <h2
+                className="text-4xl md:text-5xl font-black drop-shadow-lg"
+                style={{ fontFamily: "Georgia, 'Times New Roman', serif", color: '#f3e7cc' }}
+              >
+                La Mesa
+              </h2>
+            </div>
+
+            {/* Arena: el canvas (mesa clásica + tablero + mis fichas) + las píldoras encima.
+                mesaInset / sideOffset se afinan EN VIVO (localhost) para alinear las
+                píldoras con el borde de la mesa clásica. */}
+            <div className="relative mx-auto" style={{ maxWidth: 560, aspectRatio: '1 / 1' }}>
+              <Domino2D
+                gameState={gameState}
+                myUserId={myUserId!}
+                onPlay={playTile}
+                onPass={passTurn}
+                mesa="clasica"
+                setFichas="marfil"
+              />
+              <LaMesaSeats
+                gameState={gameState}
+                roomPlayers={roomInfo.players}
+                myUserId={myUserId!}
+                mesaInset={4}
+                ring={2}
+                sideOffset={6.5}
+              />
+            </div>
+          </div>
           /* Domino33 queda de respaldo — cambiar Domino2D por Domino33 para volver al 3D */
         )}
 

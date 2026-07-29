@@ -7,6 +7,7 @@ import AuthScreen from './domino/AuthScreen'
 import DominoClasicoHome from './games/domino-clasico'
 import GameLogosBar from './components/GameLogosBar'
 
+
 // Lazy load: cada juego se descarga solo cuando el usuario navega a él.
 // Esto mantiene el bundle del home ligero (~150 KB gzip) y carga
 // Pinta y Gana / Lotería bajo demanda.
@@ -44,6 +45,7 @@ export default function App() {
         <Routes>
           <Route path="/" element={<HomeRedirect />} />
           <Route path="/login" element={<AuthScreen />} />
+
           <Route path="/domino" element={<GlobalFrame><DominoClasicoHome /></GlobalFrame>} />
           <Route path="/domino/lobby" element={<GlobalFrame><DominoLobby /></GlobalFrame>} />
           <Route path="/domino/room/:code" element={<GlobalFrame><DominoRoom /></GlobalFrame>} />
