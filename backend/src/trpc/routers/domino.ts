@@ -61,44 +61,12 @@ export const dominoRouter = router({
     return { room: r.rows[0], players: players.rows };
   }),
 
-  createRoom: protectedProcedure.input(createRoomInput).mutation(async ({ ctx, input }) => {
-    const client = await pool.connect();
-    try {
-      await client.query('BEGIN');
-      let code: string | null = null;
-      for (let attempt = 0; attempt < 10; attempt++) {
-        const candidate = generateRoomCode();
-        const existing = await client.query(
-          `SELECT 1 FROM dc_domino_rooms WHERE code = $1`,
-          [candidate]
-        );
-        if (existing.rows.length === 0) { code = candidate; break; }
-      }
-      if (!code) {
-        await client.query('ROLLBACK');
-        throw new TRPCError({ code: 'INTERNAL_SERVER_ERROR', message: 'No se pudo generar código' });
-      }
-      const roomResult = await client.query(
-        `INSERT INTO dc_domino_rooms (code, host_user_id, is_private, max_players, status)
-         VALUES ($1, $2, $3, $4, 'waiting')
-         RETURNING id, code, host_user_id, is_private, max_players, status, created_at`,
-        [code, ctx.userId, input.isPrivate, input.maxPlayers]
-      );
-      const room = roomResult.rows[0];
-      await client.query(
-        `INSERT INTO dc_domino_players (room_id, user_id, position, is_connected)
-         VALUES ($1, $2, 0, true)`,
-        [room.id, ctx.userId]
-      );
-      await client.query('COMMIT');
-      return room;
-    } catch (err) {
-      await client.query('ROLLBACK').catch(() => {});
-      if (err instanceof TRPCError) throw err;
-      throw new TRPCError({ code: 'INTERNAL_SERVER_ERROR', message: 'Error creando sala' });
-    } finally {
-      client.release();
-    }
+  createRoom: protectedProcedure.input(createRoomInput).mutation(async () => {
+    throw new TRPCError({
+      code: 'NOT_IMPLEMENTED',
+      message: 'Deprecado: usá POST /domino/rooms. Este endpoint no soportaba ' +
+        'game_mode/team_mode/target_score y creaba salas siempre en modo individual.',
+    });
   }),
 
   joinRoom: protectedProcedure.input(codeInput).mutation(async ({ ctx, input }) => {

@@ -204,7 +204,7 @@ async function main() {
     // Setup domino realtime handlers
     setupDominoSocket(io);
 
-    httpServer.listen(PORT, () => {
+    httpServer.listen(PORT, '127.0.0.1', () => {
       console.log(`🎲 Dominócito Backend v2.0 running on http://localhost:${PORT}`);
       console.log(`🔌 Socket.IO ready on ws://localhost:${PORT}`);
       console.log(`📡 CORS allowed for: ${process.env.CORS_ORIGIN || 'http://localhost:5173'}`);

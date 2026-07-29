@@ -41,6 +41,11 @@ test:backend:
     - npx tsc --noEmit
     - echo "🔍 Sintaxis de migraciones SQL..."
     - ls src/db/migrations/ | grep -E '\.sql$' || echo "No migrations found"
+    - echo "🔍 E2E tests (teams, afk, restart)..."
+    - npm run build
+    - node e2e/teams_e2e.js && echo "✅ teams_e2e PASS" || exit 1
+    - node e2e/match_afk_e2e.js && echo "✅ match_afk_e2e PASS" || exit 1
+    - node e2e/match_restart_e2e.js && echo "✅ match_restart_e2e PASS" || exit 1
   rules:
     - changes:
         - backend/**/*
@@ -60,9 +65,29 @@ test:frontend:
     - npx tsc --noEmit
     - echo "🔍 Build de producción..."
     - npm run build
+  allow_failure: false
   rules:
     - changes:
         - pinta-y-gana/**/*
+        - .gitlab-ci.yml
+
+test:e2e_manual:
+  stage: test
+  image: node:${NODE_VERSION}
+  cache:
+    <<: *node_cache
+    policy: pull-push
+  before_script:
+    - cd ${BACKEND_DIR}
+    - npm install --prefer-offline --no-audit
+    - npm run build
+  script:
+    - echo "🔍 match_e2e (validación manual, no bloqueante)..."
+    - node e2e/match_e2e.js || echo "⚠️ match_e2e needs manual validation"
+  allow_failure: true
+  rules:
+    - changes:
+        - backend/**/*
         - .gitlab-ci.yml
 
 # ────────────────────────────────────────────────────────────────

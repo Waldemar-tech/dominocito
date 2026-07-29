@@ -7,7 +7,7 @@
 process.env.JWT_SECRET = 'test-secret-e2e';
 const http = require('http'), jwt = require('jsonwebtoken');
 const { Server } = require('socket.io'); const { io: ioc } = require('socket.io-client');
-const { __db } = require('./fakedb');
+const { __db } = require('./boot');
 const E = require('../dist/engine/domino-classic');
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 let fallos=0; const chk=(n,c,e='')=>{console.log((c?'  PASS  ':'  FAIL  ')+n+(e?' — ':'')+(e||''));if(!c)fallos++;};

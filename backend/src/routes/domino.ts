@@ -46,6 +46,15 @@ router.post('/rooms', requireAuth, async (req: Request, res: Response) => {
 
   const { isPrivate = true, maxPlayers = 4, gameMode = 'individual', teamMode = null, targetScore = null } = req.body ?? {};
 
+  const snake = ['game_mode', 'team_mode', 'target_score', 'is_private', 'max_players']
+    .filter(k => k in (req.body ?? {}));
+  if (snake.length > 0) {
+    return res.status(400).json({
+      error: `Campos en snake_case no soportados: ${snake.join(', ')}. ` +
+        `Usá camelCase (gameMode, teamMode, targetScore, isPrivate, maxPlayers).`,
+    });
+  }
+
   if (!isValidMaxPlayers(maxPlayers)) {
     return res.status(400).json({ error: 'maxPlayers debe ser 2 o 4' });
   }

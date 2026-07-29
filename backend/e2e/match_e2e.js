@@ -1,12 +1,16 @@
 process.env.JWT_SECRET = 'test-secret-e2e';
+process.env.DOMINO_TURN_TIMEOUT_MS = '15000';
+// El ready-check avanza por timeout de respaldo: en test lo ponemos casi 0
+// para que las manos sigan avanzando solas sin emitir domino:ready_next.
+process.env.DOMINO_READY_TIMEOUT_MS = '50';
 const http = require('http'), jwt = require('jsonwebtoken');
 const { Server } = require('socket.io'); const { io: ioc } = require('socket.io-client');
-const { __db } = require('./fakedb');
+const { __db } = require('./boot');
 const { setupDominoSocket } = require('../dist/realtime/domino-socket');
 const E = require('../dist/engine/domino-classic');
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 let fallos = 0;
-const chk=(n,c,e='')=>{console.log((c?'  PASS  ':'  FAIL  ')+n+(e?' — ':'')+(e||''));if(!c)fallos++;};
+const chk=(n,c,e='')=>{console.log((c?' PASS ':' FAIL ')+n+(e?' — ':'')+(e||''));if(!c)fallos++;};
 
 function seed(roomId,target){ __db.rooms.clear(); __db.players.length=0; __db.users.clear(); __db.matches=[];
   __db.rooms.set(roomId,{id:roomId,code:'M',host_user_id:100,status:'waiting',max_players:4,game_mode:'teams',team_mode:'manual',target_score:target,game_state:null,match_state:null});
@@ -29,8 +33,8 @@ function chooseMove(sv, me){
 (async()=>{
   const server=http.createServer();const io=new Server(server,{cors:{origin:'*'}});
   setupDominoSocket(io);await new Promise(r=>server.listen(4660,r));
-  console.log('=== Partido a 60 puntos, socket real, controlador secuencial ===');
-  seed(1,60);
+  console.log('=== Partido a 120 puntos, socket real, controlador secuencial ===');
+  seed(1,120);
   const view={}, ev={handFinished:[],handStarted:[],matchFinished:null,errors:[]};
   const socks={};
   [100,101,102,103].forEach(uid=>{
@@ -76,7 +80,7 @@ function chooseMove(sv, me){
   }
 
   const mf=ev.matchFinished;
-  if(!mf){ const last=ev.handFinished[ev.handFinished.length-1]; console.log('  [diag] no terminó. última score:', last?JSON.stringify(last.score):'ninguna', '| manos:', ev.handFinished.length); }
+  if(!mf){ const last=ev.handFinished[ev.handFinished.length-1]; console.log(' [diag] no terminó. última score:', last?JSON.stringify(last.score):'ninguna', '| manos:', ev.handFinished.length); }
   chk('el partido TERMINA', !!mf, mf?`equipo ${mf.winnerTeam}, ${mf.score[0]}-${mf.score[1]}, ${mf.totalHands} manos`:'TIMEOUT');
   chk('sin errores', ev.errors.length===0, [...new Set(ev.errors)].join(',')||'ninguno');
   chk('hand_finished por mano', ev.handFinished.length>=2, ev.handFinished.length+' manos');
@@ -87,7 +91,7 @@ function chooseMove(sv, me){
     chk('marcador acumula entre manos', (last.score[0]+last.score[1])>(ev.handFinished[0].score[0]+ev.handFinished[0].score[1]));
   }
   chk('hand_started = manos-1 (transiciones)', ev.handStarted.length===ev.handFinished.length-1 || ev.handStarted.length===ev.handFinished.length, `started=${ev.handStarted.length} finished=${ev.handFinished.length}`);
-  if(mf) chk('ganador llegó a la meta', mf.score[mf.winnerTeam]>=60, `${mf.score[0]}-${mf.score[1]}`);
+  if(mf) chk('ganador llegó a la meta', mf.score[mf.winnerTeam]>=120, `${mf.score[0]}-${mf.score[1]}`);
   chk('rotación de salida correcta', ev.handStarted.every((h,i)=> i===0 || h.starterPosition===(ev.handStarted[i-1].starterPosition+1)%4), ev.handStarted.map(h=>h.starterPosition).join(','));
   chk('partido persistido', (__db.matches||[]).length===1);
 

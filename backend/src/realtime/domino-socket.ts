@@ -49,12 +49,12 @@ import {
   isHandOver,
   migrateMatch,
 } from '../engine/domino-match';
-import { teamOfPosition } from '../engine/domino-classic';
+import { teamOfPosition, handValue } from '../engine/domino-classic';
 import jwt from 'jsonwebtoken';
 
-const TURN_TIMEOUT_MS = 60_000;
+const TURN_TIMEOUT_MS = Number(process.env.DOMINO_TURN_TIMEOUT_MS) || 60_000;
 /** Segundos que se muestran las fichas del perdedor antes de la mano siguiente. */
-const HAND_REVEAL_MS = 6_000;
+const HAND_REVEAL_MS = Number(process.env.DOMINO_HAND_REVEAL_MS) || 6_000;
 
 const gameStates = new Map<number, GameState>();
 const matches = new Map<number, MatchState>();
@@ -63,7 +63,7 @@ const handAdvanceTimers = new Map<number, NodeJS.Timeout>();
 const roomSockets = new Map<number, Map<number, string>>(); // roomId → userId → socketId
 
 /** Anti-flood simple por socket: mínimo intervalo entre acciones de juego. */
-const MIN_ACTION_INTERVAL_MS = 250;
+const MIN_ACTION_INTERVAL_MS = Number(process.env.DOMINO_MIN_ACTION_INTERVAL_MS ?? 250);
 
 interface AuthSocket extends Socket {
   userId?: number;
@@ -313,18 +313,30 @@ async function handleHandEndForMatch(
         winType: lastEntry?.winType,
         score: advanced.score,          // marcador acumulado por pareja
         targetScore: advanced.targetScore,
-        // Fichas reveladas SOLO del equipo perdedor (transparencia de la cuenta).
-        revealedHands: finishedHand.players
-          .filter(p => p.team === losingTeam)
-          .map(p => ({ position: p.position, username: p.username, hand: p.hand })),
+        // Reconteo: se revelan TODAS las manos con la suma de pips por jugador
+        // y por equipo (pantalla de fin de ronda / conteo venezolano). El equipo
+        // con más pips es el perdedor; el ganador se lleva esos puntos.
+        revealedHands: finishedHand.players.map(p => ({
+          position: p.position,
+          username: p.username,
+          team: p.team,
+          hand: p.hand,
+          pips: handValue(p.hand),
+        })),
+        teamTotals: {
+          0: finishedHand.players.filter(p => p.team === 0).reduce((s, p) => s + handValue(p.hand), 0),
+          1: finishedHand.players.filter(p => p.team === 1).reduce((s, p) => s + handValue(p.hand), 0),
+        },
         matchStatus: advanced.status,
-        nextInMs: advanced.status === 'playing' ? HAND_REVEAL_MS : null,
+        // Ya NO auto-avanza por timer: espera el ready-check (timeout de respaldo).
+        readyTimeoutMs: advanced.status === 'playing' ? READY_TIMEOUT_MS : null,
       });
     }
   }
 
   // 4a. El PARTIDO terminó.
   if (advanced.status === 'finished') {
+    clearReadyGate(roomId);
     await persistMatchResult(advanced);
     if (map) {
       for (const [uid, sid] of map.entries()) {
@@ -346,30 +358,82 @@ async function handleHandEndForMatch(
   }
 
   // 4b. El partido sigue: la mano siguiente ya está repartida en advanced.currentHand.
-  //     La activamos tras la cuenta regresiva.
+  //     NO se avanza por timer fijo: se abre un READY-CHECK. Cada jugador confirma
+  //     con 'domino:ready_next'; cuando todos los conectados confirman (o vence el
+  //     timeout de respaldo), arranca la mano siguiente.
   const nextHand = advanced.currentHand;
   gameStates.set(roomId, nextHand);
   await saveState(nextHand);
+  openReadyGate(io, roomId, nextHand);
+}
 
-  clearHandAdvanceTimer(roomId);
-  const t = setTimeout(() => {
-    handAdvanceTimers.delete(roomId);
-    const stillHere = matches.get(roomId);
-    if (!stillHere || stillHere.status !== 'playing') return;
-    // Emitir la nueva mano y arrancar su turno.
-    emitStateToAllPlayers(io, nextHand);
-    if (map) {
-      for (const [uid, sid] of map.entries()) {
-        io.to(sid).emit('domino:hand_started', {
-          handNumber: stillHere.handNumber,
-          starterPosition: stillHere.currentStarterPosition,
-          score: stillHere.score,
-        });
-      }
+// ─────────────────────────────────────────────────────────────────────────────
+//  READY-CHECK de próxima ronda
+//  Tras el reconteo, se espera a que todos los jugadores conectados confirmen
+//  "Próxima Ronda". Al estar todos listos (o al vencer READY_TIMEOUT_MS) arranca
+//  la mano siguiente. Se emite 'domino:ready_update' para pintar los checks.
+// ─────────────────────────────────────────────────────────────────────────────
+const READY_TIMEOUT_MS = Number(process.env.DOMINO_READY_TIMEOUT_MS) || 10_000;
+interface ReadyGate { nextHand: GameState; ready: Set<number>; timer: NodeJS.Timeout; }
+const readyGates = new Map<number, ReadyGate>();
+
+function clearReadyGate(roomId: number) {
+  const g = readyGates.get(roomId);
+  if (g) { clearTimeout(g.timer); readyGates.delete(roomId); }
+}
+
+function openReadyGate(io: Server, roomId: number, nextHand: GameState) {
+  clearReadyGate(roomId);
+  const timer = setTimeout(() => startNextHand(io, roomId), READY_TIMEOUT_MS);
+  readyGates.set(roomId, { nextHand, ready: new Set(), timer });
+  emitReadyUpdate(io, roomId);
+}
+
+function emitReadyUpdate(io: Server, roomId: number) {
+  const gate = readyGates.get(roomId);
+  const map = roomSockets.get(roomId);
+  if (!gate || !map) return;
+  const expected = [...map.keys()];
+  for (const [, sid] of map) {
+    io.to(sid).emit('domino:ready_update', {
+      ready: [...gate.ready],
+      expected,
+      timeoutMs: READY_TIMEOUT_MS,
+    });
+  }
+}
+
+function markReady(io: Server, roomId: number, userId: number) {
+  const gate = readyGates.get(roomId);
+  if (!gate) return;
+  gate.ready.add(userId);
+  emitReadyUpdate(io, roomId);
+  const map = roomSockets.get(roomId);
+  const expected = map ? [...map.keys()] : [];
+  if (expected.length > 0 && expected.every(id => gate.ready.has(id))) {
+    startNextHand(io, roomId);
+  }
+}
+
+function startNextHand(io: Server, roomId: number) {
+  const gate = readyGates.get(roomId);
+  if (!gate) return;
+  const nextHand = gate.nextHand;
+  clearReadyGate(roomId);
+  const match = matches.get(roomId);
+  if (!match || match.status !== 'playing') return;
+  emitStateToAllPlayers(io, nextHand);
+  const map = roomSockets.get(roomId);
+  if (map) {
+    for (const [, sid] of map) {
+      io.to(sid).emit('domino:hand_started', {
+        handNumber: match.handNumber,
+        starterPosition: match.currentStarterPosition,
+        score: match.score,
+      });
     }
-    startTurnTimer(io, roomId);
-  }, HAND_REVEAL_MS);
-  handAdvanceTimers.set(roomId, t);
+  }
+  startTurnTimer(io, roomId);
 }
 
 function clearHandAdvanceTimer(roomId: number) {
@@ -977,6 +1041,16 @@ export function setupDominoSocket(io: Server) {
       } catch (err) {
         console.error('[Domino] pass error:', err);
         s.emit('error', { event: 'domino:pass', error: 'Error al pasar' });
+      }
+    });
+
+    // ─── Ready-check: confirmar "Próxima Ronda" ──────────
+    s.on('domino:ready_next', () => {
+      try {
+        if (!s.userId || !s.roomId) return;
+        markReady(io, s.roomId, s.userId);
+      } catch (err) {
+        console.error('[Domino] ready_next error:', err);
       }
     });
 

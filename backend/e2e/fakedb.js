@@ -3,10 +3,11 @@
  * con estado en memoria. Suficiente para un E2E real de la capa socket.
  */
 const db = {
-  rooms: new Map(),   // id -> {id, code, host_user_id, status, max_players, game_state}
+  rooms: new Map(),   // id -> {id, code, host_user_id, status, max_players, game_state, match_state}
   players: [],        // {room_id, user_id, position, team, is_connected, socket_id}
   users: new Map(),   // id -> username
   games: [],
+  matches: [],
   stats: new Map(),
   log: [],
 };
@@ -17,9 +18,13 @@ async function query(text, params = []) {
   const q = norm(text);
   db.log.push(q.slice(0, 70));
 
-  if (/^(BEGIN|COMMIT|ROLLBACK)$/i.test(q)) return { rows: [], rowCount: 0 };
+  if (/^(BEGIN|COMMIT|ROLLBACK)$/i.test(q) || /^SET CONSTRAINTS/i.test(q)) return { rows: [], rowCount: 0 };
 
   // ── rooms ──
+  if (/^SELECT game_state, match_state FROM dc_domino_rooms WHERE id = \$1/.test(q)) {
+    const r = db.rooms.get(params[0]);
+    return { rows: r ? [{ game_state: r.game_state || null, match_state: r.match_state || null }] : [], rowCount: 0 };
+  }
   if (/^SELECT game_state FROM dc_domino_rooms WHERE id = \$1/.test(q)) {
     const r = db.rooms.get(params[0]);
     return { rows: r && r.game_state ? [{ game_state: r.game_state }] : [], rowCount: 0 };
@@ -27,6 +32,11 @@ async function query(text, params = []) {
   if (/^UPDATE dc_domino_rooms SET game_state = \$1 WHERE id = \$2/.test(q)) {
     const r = db.rooms.get(params[1]);
     if (r) r.game_state = JSON.parse(params[0]);
+    return { rows: [], rowCount: 1 };
+  }
+  if (/^UPDATE dc_domino_rooms SET match_state = \$1 WHERE id = \$2/.test(q)) {
+    const r = db.rooms.get(params[1]);
+    if (r) r.match_state = params[0] ? JSON.parse(params[0]) : null;
     return { rows: [], rowCount: 1 };
   }
   if (/^SELECT id, host_user_id, status, game_mode, team_mode FROM dc_domino_rooms WHERE id = \$1/.test(q)) {
@@ -41,9 +51,18 @@ async function query(text, params = []) {
     const r = db.rooms.get(params[0]);
     return { rows: r ? [{ game_mode: r.game_mode, team_mode: r.team_mode, status: r.status }] : [], rowCount: 0 };
   }
+  if (/^SELECT host_user_id, status FROM dc_domino_rooms WHERE id = \$1/.test(q)) {
+    const r = db.rooms.get(params[0]);
+    return { rows: r ? [{ host_user_id: r.host_user_id, status: r.status }] : [], rowCount: 0 };
+  }
   if (/^SELECT host_user_id, game_mode, status FROM dc_domino_rooms WHERE id = \$1/.test(q)) {
     const r = db.rooms.get(params[0]);
     return { rows: r ? [{ host_user_id: r.host_user_id, game_mode: r.game_mode, status: r.status }] : [], rowCount: 0 };
+  }
+  if (/^UPDATE dc_domino_rooms SET status = 'playing', started_at = NOW\(\), game_state = \$2, match_state = \$3 WHERE id = \$1/.test(q)) {
+    const r = db.rooms.get(params[0]);
+    if (r) { r.status = 'playing'; r.game_state = JSON.parse(params[1]); r.match_state = params[2] ? JSON.parse(params[2]) : null; }
+    return { rows: [], rowCount: 1 };
   }
   if (/^UPDATE dc_domino_rooms SET status = 'playing', started_at = NOW\(\), game_state = \$2 WHERE id = \$1/.test(q)) {
     const r = db.rooms.get(params[0]);
@@ -56,6 +75,16 @@ async function query(text, params = []) {
     return { rows: [], rowCount: 1 };
   }
 
+  if (/^UPDATE dc_domino_rooms SET status = 'starting' WHERE id = \$1 AND status = 'waiting' AND host_user_id = \$2/.test(q)) {
+    const r = db.rooms.get(params[0]);
+    if (!r || r.status !== 'waiting' || r.host_user_id !== params[1]) {
+      return { rows: [], rowCount: 0 };
+    }
+    r.status = 'starting';
+    return { rows: [{ id: r.id, host_user_id: r.host_user_id, status: 'starting',
+      game_mode: r.game_mode, team_mode: r.team_mode,
+      target_score: r.target_score ?? null }], rowCount: 1 };
+  }
   if (/^UPDATE dc_domino_rooms SET status = 'playing', started_at = NOW\(\) WHERE id = \$1$/.test(q)) {
     const r = db.rooms.get(params[0]); if (r) r.status = 'playing';
     return { rows: [], rowCount: 1 };
@@ -115,6 +144,10 @@ async function query(text, params = []) {
   // ── resultados / stats ──
   if (/^INSERT INTO dc_domino_games/.test(q)) {
     db.games.push({ room_id: params[0], winner_user_id: params[1], is_closed: params[2], points_awarded: params[3] });
+    return { rows: [], rowCount: 1 };
+  }
+  if (/^INSERT INTO dc_domino_matches/.test(q)) {
+    db.matches.push({ params });
     return { rows: [], rowCount: 1 };
   }
   if (/^INSERT INTO dc_domino_stats/.test(q)) {

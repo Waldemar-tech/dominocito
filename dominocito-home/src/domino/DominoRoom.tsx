@@ -4,6 +4,7 @@ import { io, Socket } from 'socket.io-client'
 import WaitingRoom from './WaitingRoom'
 import Domino33 from './three/Domino33'
 import Domino2D from './Domino2D'
+import RoundEndModal, { RoundEndData } from './RoundEndModal'
 
 interface Player {
   user_id: number
@@ -58,6 +59,8 @@ export default function DominoRoom() {
   const [toast, setToast] = useState<{ id: number; text: string } | null>(null)
   const [socketConnected, setSocketConnected] = useState(false)
   const [authDone, setAuthDone] = useState(false)
+  const [roundEnd, setRoundEnd] = useState<RoundEndData | null>(null)
+  const [readyInfo, setReadyInfo] = useState<{ ready: number[]; expected: number[]; timeoutMs: number } | null>(null)
 
   const socketRef = useRef<Socket | null>(null)
   const toastIdRef = useRef(0)
@@ -189,6 +192,30 @@ export default function DominoRoom() {
       pushToast(`⚠️ ${data.error || 'Error'}`, 4000)
     })
 
+    // ── Fin de ronda: reconteo + ready-check ──────────────
+    socket.on('domino:hand_finished', (data: any) => {
+      setRoundEnd(data)
+      setReadyInfo({ ready: [], expected: [], timeoutMs: data?.readyTimeoutMs ?? 10000 })
+    })
+    socket.on('domino:ready_update', (data: any) => {
+      setReadyInfo({
+        ready: data?.ready ?? [],
+        expected: data?.expected ?? [],
+        timeoutMs: data?.timeoutMs ?? 10000,
+      })
+    })
+    socket.on('domino:hand_started', () => {
+      setRoundEnd(null)
+      setReadyInfo(null)
+    })
+    socket.on('domino:match_finished', (data: any) => {
+      setRoundEnd(null)
+      setReadyInfo(null)
+      const t = data?.winnerTeam === 0 ? 'Azul' : data?.winnerTeam === 1 ? 'Rojo' : ''
+      pushToast(`🏆 ¡Ganó el equipo ${t}! (${data?.score?.[0] ?? 0} - ${data?.score?.[1] ?? 0})`, 8000)
+      setTimeout(() => localStorage.removeItem('dc_current_room_code'), 6000)
+    })
+
     return () => {
       socket.disconnect()
     }
@@ -274,7 +301,7 @@ export default function DominoRoom() {
   const canStart = isHost && playerCount >= 2 && roomInfo.status === 'waiting'
 
   return (
-    <div className="min-h-screen p-4">
+    <div className="min-h-screen p-4 pt-28">
       <div className="max-w-6xl mx-auto">
         <Link
           to="/domino"
@@ -362,6 +389,20 @@ export default function DominoRoom() {
             setFichas="dibujito"
           />
           /* Domino33 queda de respaldo — cambiar Domino2D por Domino33 para volver al 3D */
+        )}
+
+        {/* Modal de fin de ronda: reconteo + ready-check */}
+        {roundEnd && (
+          <RoundEndModal
+            data={roundEnd}
+            players={roomInfo.players}
+            myUserId={myUserId}
+            ready={readyInfo?.ready ?? []}
+            expected={readyInfo?.expected ?? []}
+            timeoutMs={readyInfo?.timeoutMs ?? 10000}
+            setFichas="dibujito"
+            onReady={() => socketRef.current?.emit('domino:ready_next')}
+          />
         )}
 
         {/* Toast */}
